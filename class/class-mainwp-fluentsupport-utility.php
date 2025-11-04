@@ -32,7 +32,7 @@ class MainWP_FluentSupport_Utility {
 	public static function get_websites( $site_id = null ) {
 		global $mainWPFluentSupportExtensionActivator;
         $plugin_file = $mainWPFluentSupportExtensionActivator->get_child_file();
-		return apply_filters( 'mainwp_getsites', $plugin_file, $plugin_file, $site_id, false );
+		return apply_filters( 'mainwp_getsites',  $plugin_file, $mainWPFluentSupportExtensionActivator->get_child_key(), $site_id, false );
 	}
     
     /**
@@ -55,11 +55,14 @@ class MainWP_FluentSupport_Utility {
      * * * * @return array Map of slash-suffixed URL string to Site ID.
      */
     public static function map_client_sites_by_url() {
-        $sites = self::get_websites();
+        $all_websites = MainWP_FluentSupport_Utility::get_websites();
+		$site_count = is_array($all_websites) ? count($all_websites) : 0;
         $url_map = array();
 
-        if ( is_array( $sites ) ) {
-            foreach ( $sites as $site ) {
+		error_log('[FluentSupport DEBUG] $sites Array Check - Site Count: ' . $site_count );
+        if ( is_array( $all_websites ) ) {
+					error_log('[FluentSupport DEBUG] $sites is an array');
+            foreach ( $allsites as $site ) {
                 // $site['url'] corresponds to mainwp_wp.siteurl
                 // Trim whitespace, force URL to end with a trailing slash to match stored format
                 $normalized_url = rtrim( trim( $site['url'] ), '/' ) . '/'; 
@@ -93,7 +96,7 @@ class MainWP_FluentSupport_Utility {
         $normalized_url = rtrim( trim( $clean_url ), '/' ) . '/';
         
         // === DEBUG LOGGING ===
-        error_log('[FluentSupport DEBUG] Lookup Target: ' . $normalized_url);
+        //error_log('[FluentSupport DEBUG] Lookup Target: ' . $normalized_url);
         // =====================
 
         return isset( $site_map[ $normalized_url ] ) ? $site_map[ $normalized_url ] : 0;
