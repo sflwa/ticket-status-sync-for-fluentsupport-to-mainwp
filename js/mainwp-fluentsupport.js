@@ -26,27 +26,19 @@ jQuery(document).ready(function ($) {
     $fetchButton.on('click', function (e) {
         e.preventDefault();
 
-        // 1. Initial UI Lock and Message Display (CONFIRMING BUTTON IS PRESSED)
+        // 1. Initial UI Lock and Message Display
         $fetchButton.prop('disabled', true).text('Fetching Tickets...');
         $messageDiv.hide().removeClass().empty();
-        console.log('--- FluentSupport AJAX Request Started ---');
 
         // Show immediate loading indicator
         $ticketDataBody.html('<tr class="loading-row"><td colspan="5"><i class="fa fa-spinner fa-pulse"></i> Contacting Support Site for tickets...</td></tr>');
         
-        // Update debug box before sending
-        $('#mainwp-fluentsupport-ajax-result').text('Sending request...'); 
-
         $.ajax({
             url: mainwpFluentSupport.ajaxurl,
             type: 'POST',
             data: getFormData(fetchAction), // Use helper function to get data
             timeout: 60000, // CRITICAL FIX: Increased client-side timeout to 60 seconds
             success: function (response) {
-                console.log('--- FluentSupport AJAX Request Succeeded ---');
-                // ENHANCED DEBUGGING: Display the raw response in the debug box
-                $('#mainwp-fluentsupport-ajax-result').text(JSON.stringify(response, null, 2));
-
                 if (response.success) {
                     // Success: Update the table with the returned HTML
                     $ticketDataBody.html(response.data.html);
@@ -57,28 +49,16 @@ jQuery(document).ready(function ($) {
                         .slideDown();
                 } else {
                     // Failure: The PHP handler returned wp_send_json_error or the remote site returned an error
-                    $ticketDataBody.html(response.data.html || '<tr><td colspan="5">An error occurred while fetching data. Check Settings and Debug details below.</td></tr>');
+                    $ticketDataBody.html(response.data.html || '<tr><td colspan="5">An error occurred while fetching data. Check Settings.</td></tr>');
 
                     $messageDiv
                         .addClass('mainwp-notice mainwp-notice-red')
-                        .html('<strong>Error:</strong> ' + (response.data.message || 'Unknown Error (Check PHP logs)'))
+                        .html('<strong>Error:</strong> ' + (response.data.message || 'Unknown Error'))
                         .slideDown();
                 }
             },
             error: function (jqXHR, textStatus, errorThrown) {
-                console.log('--- FluentSupport AJAX Request FAILED (Network/Timeout) ---');
-                
-                // *** CRITICAL DEBUG UPDATE ***: Capture network error details
-                var debugError = {
-                    "Network Status": textStatus,
-                    "Error Thrown": errorThrown,
-                    "jqXHR ReadyState": jqXHR.readyState,
-                    "Possible Cause": "PHP Memory or Time Limit Exceeded on MainWP Dashboard Server"
-                };
-                // Ensure the debug box is updated here
-                $('#mainwp-fluentsupport-ajax-result').text(JSON.stringify(debugError, null, 2)); 
-                
-                // Network/Timeout Error (Most likely cause if the page just sits there)
+                // Network/Timeout Error 
                 $ticketDataBody.html('<tr><td colspan="5">Network Error: Request timed out or was blocked. Status: ' + textStatus + '</td></tr>');
 
                 $messageDiv
