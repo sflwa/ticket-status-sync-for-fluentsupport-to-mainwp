@@ -16,7 +16,7 @@ class MainWP_FluentSupport_Admin {
 		}
 		return self::$instance;
 	}
- 
+
 	public function __construct() {
 		// Initialize the DB class (Required for MainWP structural pattern)
 		MainWP_FluentSupport_DB::get_instance()->install();
@@ -25,9 +25,10 @@ class MainWP_FluentSupport_Admin {
 		add_action( 'wp_ajax_mainwp_fluentsupport_fetch_tickets', array( $this, 'ajax_fetch_tickets' ) );
 		add_action( 'wp_ajax_mainwp_fluentsupport_save_settings', array( $this, 'ajax_save_settings' ) );
 
-		// MainWP filter hooks (remote execution)
-		add_filter( 'mainwp_site_actions_fluent_support_tickets_all', array( $this, 'get_support_site_tickets' ), 10, 2 );
+		// MainWP filter hook for injecting client site data into the remote call
 		add_filter( 'mainwp_before_do_actions', array( $this, 'inject_client_sites_data' ), 10, 3 );
+        
+        // REMOVED: add_filter( 'mainwp_site_actions_fluent_support_tickets_all', array( $this, 'get_support_site_tickets' ), 10, 2 );
 	}
 
     /**
@@ -405,12 +406,20 @@ class MainWP_FluentSupport_Admin {
             $html_output = '<tr class="error-row"><td colspan="5">' . esc_html($error_message) . '</td></tr>';
             wp_send_json_error( array( 'html' => $html_output, 'message' => $error_message ) );
         }
-
-        // FIX for Issue #2: Pass the plugin file path as the third argument to mainwp_do_actions_on_child_site
+        
+        // Fetch the plugin file path for the remote call
         $plugin_file = MainWP_FluentSupport_Utility::get_file_name();
+        
+        error_log( '[FluentSupport] Attempting remote call to ID: ' . $website['id'] . ' using file: ' . $plugin_file );
+
+        // Use the explicit 'mainwp_do_actions' filter for reliability.
+        // The data array explicitly maps the action to the plugin file path/key.
+        $data = array(
+            'fluent_support_tickets_all' => 'fluent-support-child/fluent-support-child.php', // CRITICAL: This must match the child plugin file path!
+        );
 
         // Execute the action on the single site
-        $result = apply_filters( 'mainwp_do_actions_on_child_site', 'fluent_support_tickets_all', $website['id'], $plugin_file );
+        $result = apply_filters( 'mainwp_do_actions', 'fluent_support_tickets_all', $website['id'], $data );
         
         $html_output = '';
 
@@ -438,84 +447,14 @@ class MainWP_FluentSupport_Admin {
             } else if (is_array($result) && !empty($result)) {
                 $error_message .= ' (Raw response seen in Debug Output)';
             }
+            
+            // Add the plugin file used to the error message for easy debugging
+            $error_message .= ' (Remote action attempted with file: ' . esc_html($data['fluent_support_tickets_all']) . ')';
+            
             $html_output = '<tr class="error-row"><td colspan="5">' . $error_message . '</td></tr>';
             wp_send_json_error( array( 'html' => $html_output, 'message' => $error_message, 'raw_response' => $result ) );
         }
     }
     
-    /**
-     * CORE INTEGRATION LOGIC (Runs on the single SUPPORT SITE)
-     * Fetches tickets and maps cf_website_url to MainWP site name.
-     */
-    public function get_support_site_tickets( $data, $website_id ) {
-        if ( ! function_exists( 'FluentSupportApi' ) ) {
-            return array( 'error' => 'FluentSupport is not installed/active on this Support Site.' );
-        }
-
-        try {
-            $ticket_api = FluentSupportApi( 'tickets' );
-            // client_sites_map is passed from the dashboard: URL (no trailing slash) => Site Name
-            $client_sites_map = isset( $data['client_sites'] ) ? $data['client_sites'] : array();
-            
-            $tickets_data = $ticket_api->getTickets( array( 
-                'per_page' => 10,
-                'order_by' => 'updated_at',
-                'order_type' => 'DESC',
-                'filters' => array( 'status_type' => 'open' )
-            ) );
-
-            $parsed_tickets = array();
-            
-            if ( isset( $tickets_data['tickets'] ) && is_array( $tickets_data['tickets'] ) ) {
-                global $wpdb;
-                $table_name = $wpdb->prefix . 'fst_ticket_custom_fields';
-
-                foreach ( $tickets_data['tickets'] as $ticket ) {
-                    
-                    $website_url = '';
-                    $cf_data = $wpdb->get_results( 
-                        $wpdb->prepare(
-                            "SELECT field_value FROM {$table_name} WHERE ticket_id = %d AND field_name = %s",
-                            $ticket['id'],
-                            'cf_website_url'
-                        ),
-                        ARRAY_A
-                    );
-
-                    if ( ! empty( $cf_data ) && ! empty( $cf_data[0]['field_value'] ) ) {
-                        // Normalize the URL from FluentSupport (remove trailing slash)
-                        $website_url = rtrim( $cf_data[0]['field_value'], '/' );
-                    }
-
-                    $client_site_name = 'Unmapped Site (URL: ' . $website_url . ')';
-                    
-                    if ( ! empty( $website_url ) && isset( $client_sites_map[ $website_url ] ) ) {
-                         $client_site_name = $client_sites_map[ $website_url ];
-                    } else if ( ! empty( $website_url ) && isset( $client_sites_map[ $website_url . '/' ] ) ) {
-                         // Check for trailing slash case (e.g., if MainWP stored the URL with one)
-                         $client_site_name = $client_sites_map[ $website_url . '/' ];
-                    }
-                    
-                    $ticket_url = admin_url( 'admin.php?page=fluent-support#/tickets/' . $ticket['id'] );
-
-                    $parsed_tickets[] = array(
-                        'title'            => $ticket['title'],
-                        'status'           => ucfirst( $ticket['status'] ),
-                        'priority'         => ucfirst( $ticket['priority'] ),
-                        'updated_at'       => date( 'M j, Y H:i', strtotime( $ticket['updated_at'] ) ),
-                        'ticket_url'       => $ticket_url,
-                        'client_site_name' => $client_site_name,
-                    );
-                }
-            }
-
-            return array(
-                'tickets' => $parsed_tickets,
-                'success' => true,
-            );
-
-        } catch ( Exception $e ) {
-            return array( 'error' => 'FluentSupport API Exception: ' . $e->getMessage() );
-        }
-    }
+    // REMOVED: public function get_support_site_tickets( $data, $website_id ) { ... }
 }
