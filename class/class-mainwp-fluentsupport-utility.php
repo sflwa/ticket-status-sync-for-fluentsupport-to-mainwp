@@ -49,6 +49,58 @@ class MainWP_FluentSupport_Utility {
     }
 
     /**
+     * Maps MainWP child site URLs to their IDs.
+     * Creates the map of [mainwp_wp.siteurl (slash-suffixed) => Site ID].
+     * CRITICAL FIX: Explicitly forces a trailing slash and trims whitespace on the MainWP URL.
+     * * * * @return array Map of slash-suffixed URL string to Site ID.
+     */
+    public static function map_client_sites_by_url() {
+        $sites = self::get_websites();
+        $url_map = array();
+
+        if ( is_array( $sites ) ) {
+            foreach ( $sites as $site ) {
+                // $site['url'] corresponds to mainwp_wp.siteurl
+                // Trim whitespace, force URL to end with a trailing slash to match stored format
+                $normalized_url = rtrim( trim( $site['url'] ), '/' ) . '/'; 
+                $url_map[ $normalized_url ] = $site['id'];
+                
+                // === DEBUG LOGGING ===
+                error_log('[FluentSupport DEBUG] Mapped URL Key: ' . $normalized_url . ' => ID: ' . $site['id']); 
+                // =====================
+            }
+        }
+
+        return $url_map;
+    }
+
+    /**
+     * Gets the MainWP Site ID for a given URL using the pre-computed map.
+     *
+     * @param string $website_url The URL from the ticket custom field (which becomes client_site_url).
+     * @param array $site_map Pre-computed map of URL => ID.
+     * @return int The MainWP client site ID or 0 if not found.
+     */
+    public static function get_site_id_by_url( $website_url, $site_map ) {
+        if ( empty( $website_url ) || ! is_array( $site_map ) ) {
+            return 0;
+        }
+
+        // 1. Clean (strip HTML) the incoming ticket URL
+        $clean_url = strip_tags( $website_url );
+        
+        // 2. Trim whitespace and add trailing slash to align with the MainWP stored format
+        $normalized_url = rtrim( trim( $clean_url ), '/' ) . '/';
+        
+        // === DEBUG LOGGING ===
+        error_log('[FluentSupport DEBUG] Lookup Target: ' . $normalized_url);
+        // =====================
+
+        return isset( $site_map[ $normalized_url ] ) ? $site_map[ $normalized_url ] : 0;
+    }
+
+
+    /**
      * Tests the FluentSupport REST API connection.
      */
     public static function api_test_connection( $site_url, $username, $password ) {
@@ -92,6 +144,10 @@ class MainWP_FluentSupport_Utility {
         $synced_count = 0;
         $start_time = microtime(true);
         
+        // NEW: Pre-compute the URL to ID map once before the main loop
+        // The debug output from map_client_sites_by_url will show up here.
+        $site_url_to_id_map = self::map_client_sites_by_url(); 
+        
         // Define data formats for wpdb::insert/update (CRITICAL FIX)
         $format_array = array(
             '%d', // ticket_id (bigint)
@@ -132,7 +188,6 @@ class MainWP_FluentSupport_Utility {
             // ==========================================================
             // STEP 2: Loop through tickets and call singular endpoint for detail
             // ==========================================================
-            $mainwp_client_sites = self::get_websites(); // Fetch sites once per page of tickets
             
             foreach ( $ticket_list as $ticket_summary ) {
                 
@@ -149,30 +204,14 @@ class MainWP_FluentSupport_Utility {
 
                 $single_response = self::execute_remote_get( $singular_endpoint, $username, $password );
                 
-                // --- DEBUG AND ERROR CHECK START (API call) ---
-                $log_message = '';
-
-                if ( is_wp_error( $single_response ) ) {
-                    $log_message = 'WP_ERROR: ' . $single_response->get_error_message();
-                } else {
-                    $response_code = wp_remote_retrieve_response_code( $single_response );
-                    if ($response_code !== 200) {
-                        $response_body = wp_remote_retrieve_body( $single_response );
-                        $log_message = 'HTTP_CODE: ' . $response_code . ' | BODY: ' . substr($response_body, 0, 100);
-                    }
-                }
-                
-                if ( ! empty( $log_message ) ) {
-                    error_log('[FluentSupport Sync] Ticket ID ' . $ticket_id . ' failed. Reason: ' . $log_message);
+                if ( is_wp_error( $single_response ) || wp_remote_retrieve_response_code( $single_response ) !== 200 ) {
                     continue; 
                 }
-                // --- DEBUG AND ERROR CHECK END (API call) ---
                 
                 $single_data = json_decode( wp_remote_retrieve_body( $single_response ), true );
                 
                 // CRITICAL FIX: Access the ticket data via the 'ticket' key
                 if ( !isset($single_data['ticket']) || !is_array($single_data['ticket']) ) {
-                     error_log('[FluentSupport Sync] Ticket ID ' . $ticket_id . ' failed parsing. Missing "ticket" key in response.');
                      continue; 
                 }
                 
@@ -184,28 +223,27 @@ class MainWP_FluentSupport_Utility {
                 }
                 
                 // --- Extract Data and Site URL ---
-                $website_url = '';
+                $raw_website_url = '';
                 
                 // CRITICAL FIX: Directly access the custom field by key as confirmed by manual test
                 if ( isset($ticket['custom_fields']) && isset($ticket['custom_fields']['cf_website_url']) ) {
-                    $raw_url = $ticket['custom_fields']['cf_website_url'];
-                    
-                    // Strip HTML tags and remove trailing slash
-                    $website_url = rtrim( strip_tags($raw_url), '/' );
+                    $raw_website_url = $ticket['custom_fields']['cf_website_url'];
                 }
                 
-                // Get the MainWP Site ID 
-                $client_site_id = 0;
+                // Get the MainWP Site ID using the new robust lookup function
+                // The debug output from get_site_id_by_url will show up here.
+                $client_site_id = self::get_site_id_by_url( $raw_website_url, $site_url_to_id_map );
                 
-                if ( ! empty( $website_url ) && is_array( $mainwp_client_sites ) ) {
-                    foreach ( $mainwp_client_sites as $site ) {
-                         if ( rtrim($site['url'], '/') === $website_url ) {
-                             $client_site_id = $site['id'];
-                             break;
-                         }
-                    }
-                }
+                // === DEBUG LOGGING ===
+              //  error_log('[FluentSupport DEBUG] TICKET: ' . $ticket_id . ' | Site ID Lookup Result: ' . $client_site_id);
+                // =====================
+                
+                // Clean the URL for storage (strip HTML, trim whitespace, and ADD trailing slash)
+                // This value is stored in mainwp_fluentsupport_tickets.client_site_url
+                $website_url = strip_tags( $raw_website_url );
+                $website_url = rtrim( trim( $website_url ), '/' ) . '/'; // Explicitly add trailing slash for storage
 
+                
                 // --- Prepare DB Data ---
                 $last_update_str = isset($ticket['updated_at']) ? $ticket['updated_at'] : current_time('mysql');
                 $created_at_str = isset($ticket['created_at']) ? $ticket['created_at'] : current_time('mysql');
@@ -217,7 +255,7 @@ class MainWP_FluentSupport_Utility {
                 $data_to_save = array(
                     'ticket_id'      => (int)$ticket_id, 
                     'client_site_id' => (int)$client_site_id,
-                    'client_site_url' => $website_url, // This should now contain the clean URL
+                    'client_site_url' => $website_url, // This should now contain the slash-suffixed URL
                     'ticket_title'   => isset($ticket['title']) ? $ticket['title'] : 'N/A',
                     'ticket_status'  => substr(isset($ticket['status']) ? $ticket['status'] : 'N/A', 0, 20),
                     'ticket_priority'=> substr(isset($ticket['priority']) ? $ticket['priority'] : 'N/A', 0, 20),
@@ -233,21 +271,11 @@ class MainWP_FluentSupport_Utility {
                 if ( $existing_ticket ) {
                     // Update existing record
                     // CRITICAL FIX: Added format array for security and reliability
-                    $updated = $wpdb->update( $table_name, $data_to_save, array( 'ticket_id' => $ticket_id ), $format_array, array('%d') );
-                     
-                    // LOGGING: Final state check
-                    if ($updated === false) {
-                         error_log('[FluentSupport DB FINAL] UPDATE FAILED for ID ' . $ticket_id . '. Last Error: ' . $wpdb->last_error . ' | Data: ' . print_r($data_to_save, true));
-                    }
+                    $wpdb->update( $table_name, $data_to_save, array( 'ticket_id' => $ticket_id ), $format_array, array('%d') );
                 } else {
                     // Insert new record
                     // CRITICAL FIX: Added format array for security and reliability
-                    $inserted = $wpdb->insert( $table_name, $data_to_save, $format_array );
-                    
-                    // LOGGING: Final state check
-                    if ($inserted === false) {
-                         error_log('[FluentSupport DB FINAL] INSERT FAILED for ID ' . $ticket_id . '. Last Error: ' . $wpdb->last_error . ' | Data: ' . print_r($data_to_save, true));
-                    }
+                    $wpdb->insert( $table_name, $data_to_save, $format_array );
                 }
 
                 $synced_count++;
@@ -281,15 +309,30 @@ class MainWP_FluentSupport_Utility {
         $site_name_map = array();
         if ( is_array( $mainwp_client_sites ) ) {
             foreach ( $mainwp_client_sites as $site ) {
-                 $site_name_map[ $site['id'] ] = $site['name'];
+                 // CRITICAL FIX: Cast key to string for reliable lookup against DB results
+                 $site_name_map[ (string)$site['id'] ] = $site['name'];
             }
         }
 
         foreach ($results as $ticket) {
-            $client_site_name = 'Unmapped Site (URL: ' . $ticket['client_site_url'] . ')';
+            
+            // Build the MainWP dashboard link.
+            $mainwp_dashboard_url = '';
+            $ticket_client_id = (string)$ticket['client_site_id']; // CRITICAL FIX: Cast ticket ID to string for lookup
+            
+            if ( $ticket_client_id > 0 ) {
+                 $mainwp_dashboard_url = admin_url( 'admin.php?page=managesites&dashboard=' . $ticket_client_id );
+            }
 
-            if ( $ticket['client_site_id'] > 0 && isset( $site_name_map[ $ticket['client_site_id'] ] ) ) {
-                $client_site_name = $site_name_map[ $ticket['client_site_id'] ];
+            // Default unmapped status
+            $client_site_name = 'Unmapped Site (URL: ' . esc_html( $ticket['client_site_url'] ) . ')';
+            
+            if ( $ticket_client_id > 0 && isset( $site_name_map[ $ticket_client_id ] ) ) {
+                // BEST CASE: Mapped, Name Exists. Output: SiteName -> link to dashboard
+                $client_site_name = '<a href="' . esc_url( $mainwp_dashboard_url ) . '">' . esc_html( $site_name_map[ $ticket_client_id ] ) . '</a>';
+            } else if ( $ticket_client_id > 0 && ! empty( $mainwp_dashboard_url ) ) {
+                // ODD CASE: Mapped ID exists but Name is missing. Output: URL -> link to dashboard
+                $client_site_name = '<a href="' . esc_url( $mainwp_dashboard_url ) . '">' . esc_html( $ticket['client_site_url'] ) . '</a>';
             }
 
             $parsed_tickets[] = array(
