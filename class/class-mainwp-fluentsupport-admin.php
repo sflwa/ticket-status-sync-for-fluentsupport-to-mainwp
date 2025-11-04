@@ -16,7 +16,7 @@ class MainWP_FluentSupport_Admin {
 		}
 		return self::$instance;
 	}
-
+ 
 	public function __construct() {
 		// Initialize the DB class (Required for MainWP structural pattern)
 		MainWP_FluentSupport_DB::get_instance()->install();
@@ -406,8 +406,11 @@ class MainWP_FluentSupport_Admin {
             wp_send_json_error( array( 'html' => $html_output, 'message' => $error_message ) );
         }
 
+        // FIX for Issue #2: Pass the plugin file path as the third argument to mainwp_do_actions_on_child_site
+        $plugin_file = MainWP_FluentSupport_Utility::get_file_name();
+
         // Execute the action on the single site
-        $result = apply_filters( 'mainwp_do_actions_on_child_site', 'fluent_support_tickets_all', $website['id'] );
+        $result = apply_filters( 'mainwp_do_actions_on_child_site', 'fluent_support_tickets_all', $website['id'], $plugin_file );
         
         $html_output = '';
 
