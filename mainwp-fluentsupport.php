@@ -140,13 +140,21 @@ class MainWP_FluentSupport_Extension_Activator {
         $plugin_slug = 'mainwp-fluentsupport';
         $page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
 
-        // 🔑 FINAL FIX: Check explicitly for the known dynamic slug OR the primary slug.
+        // 🔑 FIX: Corrected the stylesheet handle from 'mainwp-style' to 'mainwp-css'
         if ( $page === 'Extensions-Fs-Mainwp-Main' || strpos( $page, $plugin_slug ) !== false ) {
             
             wp_enqueue_script( 
                 $plugin_slug . '-js', 
                 plugin_dir_url( __FILE__ ) . 'js/mainwp-fluentsupport.js', 
                 array( 'jquery' ), 
+                $this->software_version, 
+                true 
+            );
+			
+			  wp_enqueue_style( 
+                $plugin_slug,
+                plugin_dir_url( __FILE__ ) . 'css/mainwp-fluentsupport.css', 
+                array(), 
                 $this->software_version, 
                 true 
             );
@@ -157,7 +165,8 @@ class MainWP_FluentSupport_Extension_Activator {
                 'action'  => 'mainwp_fluentsupport_fetch_tickets'
             ) );
 
-            wp_add_inline_style( 'mainwp-style', '#fluentsupport-ticket-data .loading-row { background: #f9f9f9; } #fluentsupport-ticket-data .error-row { background: #fee; color: red; }' );
+            // CORRECTED: Using 'mainwp-css' handle now.
+            wp_add_inline_style( 'mainwp-css', '#mainwp-fluentsupport-extension {margin:20px;} #fluentsupport-ticket-data .loading-row { background: #f9f9f9; } #fluentsupport-ticket-data .error-row { background: #fee; color: red; }' );
         }
     }
 }
@@ -165,3 +174,4 @@ class MainWP_FluentSupport_Extension_Activator {
 // Global instantiation, required by MainWP framework
 global $mainWPFluentSupportExtensionActivator;
 $mainWPFluentSupportExtensionActivator = new MainWP_FluentSupport_Extension_Activator();
+
