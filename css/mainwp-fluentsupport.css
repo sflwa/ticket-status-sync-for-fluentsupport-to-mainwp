@@ -1,0 +1,10 @@
+.mainwp-content-wrap  #mainwp-fluentsupport-extension .wrap  {
+    margin: 20px !important;
+}
+#fluentsupport-ticket-data .loading-row {
+    background: #f9f9f9;
+}
+#fluentsupport-ticket-data .error-row {
+    background: #fee;
+    color: red;
+}
