@@ -18,21 +18,43 @@ class MainWP_FluentSupport_Utility {
 		}
 		return self::$instance;
 	}
-    
+
     // Get the correct filename for MainWP hooks
 	public static function get_file_name() {
 		global $mainWPFluentSupportExtensionActivator;
 		return $mainWPFluentSupportExtensionActivator->get_child_file();
 	}
     
-    /**
+     /**
      * Get Websites
-     * Gets all child sites through the 'mainwp_getsites' filter.
+     * Gets all child sites by querying the mainwp_wp database table directly.
+     * * @param int|null $site_id Optional. The ID of a single site to fetch.
+     * @return array Array of associative arrays containing 'id', 'url', and 'name'.
      */
 	public static function get_websites( $site_id = null ) {
-		global $mainWPFluentSupportExtensionActivator;
-        $plugin_file = $mainWPFluentSupportExtensionActivator->get_child_file();
-		return apply_filters( 'mainwp_getsites',  $plugin_file, $mainWPFluentSupportExtensionActivator->get_child_key(), $site_id, false );
+		global $wpdb;
+        
+        // CRITICAL FIX: Use the WordPress global prefix for MainWP tables
+        $table_name = $wpdb->prefix . 'mainwp_wp'; 
+        $results = array();
+        
+        if ( null !== $site_id ) {
+            // Fetch a single site
+            $sql = $wpdb->prepare(
+                "SELECT id, url, name FROM {$table_name} WHERE id = %d",
+                $site_id
+            );
+            $result = $wpdb->get_row( $sql, ARRAY_A );
+            if ( $result ) {
+                $results[] = $result;
+            }
+        } else {
+            // Fetch all sites
+            $sql = "SELECT id, url, name FROM {$table_name}";
+            $results = $wpdb->get_results( $sql, ARRAY_A );
+        }
+
+		return is_array($results) ? $results : array();
 	}
     
     /**
@@ -59,19 +81,14 @@ class MainWP_FluentSupport_Utility {
 		$site_count = is_array($all_websites) ? count($all_websites) : 0;
         $url_map = array();
 
-		error_log('[FluentSupport DEBUG] $sites Array Check - Site Count: ' . $site_count );
         if ( is_array( $all_websites ) ) {
 					error_log('[FluentSupport DEBUG] $sites is an array');
-            foreach ( $allsites as $site ) {
+            foreach ( $all_websites as $site ) {
                 // $site['url'] corresponds to mainwp_wp.siteurl
                 // Trim whitespace, force URL to end with a trailing slash to match stored format
                 $normalized_url = rtrim( trim( $site['url'] ), '/' ) . '/'; 
                 $url_map[ $normalized_url ] = $site['id'];
-                
-                // === DEBUG LOGGING ===
-                error_log('[FluentSupport DEBUG] Mapped URL Key: ' . $normalized_url . ' => ID: ' . $site['id']); 
-                // =====================
-            }
+              }
         }
 
         return $url_map;
@@ -95,10 +112,7 @@ class MainWP_FluentSupport_Utility {
         // 2. Trim whitespace and add trailing slash to align with the MainWP stored format
         $normalized_url = rtrim( trim( $clean_url ), '/' ) . '/';
         
-        // === DEBUG LOGGING ===
-        //error_log('[FluentSupport DEBUG] Lookup Target: ' . $normalized_url);
-        // =====================
-
+       
         return isset( $site_map[ $normalized_url ] ) ? $site_map[ $normalized_url ] : 0;
     }
 
