@@ -31,6 +31,10 @@ class MainWP_FluentSupport_DB {
         global $wpdb;
         $table_name = $wpdb->prefix . $this->table_name;
         $charset_collate = $wpdb->get_charset_collate();
+        
+        // Use a consistent, standard collation for string comparisons
+        // CRITICAL FIX: Explicitly define the collation to prevent Illegal mix of collations error
+        $collation_sql = 'CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci';
 
         // Check if the table already exists
         if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) != $table_name ) {
@@ -40,11 +44,11 @@ class MainWP_FluentSupport_DB {
                 id bigint(20) NOT NULL AUTO_INCREMENT,
                 ticket_id bigint(20) NOT NULL,
                 client_site_id bigint(20) DEFAULT 0,
-                client_site_url TEXT NOT NULL,
-                ticket_title longtext NOT NULL,
+                client_site_url TEXT $collation_sql NOT NULL,
+                ticket_title longtext $collation_sql NOT NULL,
                 ticket_status varchar(20) NOT NULL,
                 ticket_priority varchar(20) NOT NULL,
-                ticket_url text NOT NULL,
+                ticket_url text $collation_sql NOT NULL,
                 last_update datetime NOT NULL,
                 created_at datetime NOT NULL,
                 PRIMARY KEY  (id),
