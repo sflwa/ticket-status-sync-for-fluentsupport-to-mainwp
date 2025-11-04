@@ -74,7 +74,7 @@ jQuery(document).ready(function ($) {
         var formData = {
             action: saveAction,
             security: mainwpFluentSupport.nonce,
-            fluentsupport_site_url: $('#fluentsupport_site_url').val() 
+            fluentsupport_site_id: $('#fluentsupport_site_selection').val() 
         };
 
         $.ajax({
