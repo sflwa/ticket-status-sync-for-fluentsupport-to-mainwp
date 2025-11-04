@@ -9,7 +9,7 @@ namespace MainWP\Extensions\FluentSupport;
 class MainWP_FluentSupport_Admin {
 
 	public static $instance = null;
-    private $version = 'V1.22-DB-Final-Debug-Output'; // <--- NEW VERSION IDENTIFIER
+    private $version = '1.1.9'; // Cleaned version identifier
 
 	public static function get_instance() {
 		if ( null == self::$instance ) {
@@ -55,7 +55,7 @@ class MainWP_FluentSupport_Admin {
     }
 
     // -----------------------------------------------------------------
-    // RENDERING METHODS (UNCHANGED)
+    // RENDERING METHODS
     // -----------------------------------------------------------------
 
     /**
@@ -156,17 +156,17 @@ class MainWP_FluentSupport_Admin {
         
         // New: Pull data from the local database immediately for display
         $db_results = MainWP_FluentSupport_Utility::api_get_tickets_from_db();
-        $initial_html = '<tr><td colspan="5">No tickets found in local database. Click "Fetch Latest Tickets" to sync.</td></tr>';
+        // Updated colspan to 4 and removed priority data
+        $initial_html = '<tr><td colspan="4">No tickets found in local database. Click "Fetch Latest Tickets" to sync.</td></tr>';
         
         if ( $db_results['success'] && ! empty( $db_results['tickets'] ) ) {
             $initial_html = '';
             foreach ($db_results['tickets'] as $ticket) {
                  $initial_html .= '
                     <tr>
-                        <td>' . esc_html( $ticket['client_site_name'] ) . '</td>
+                        <td>' . $ticket['client_site_name'] . '</td>
                         <td><a href="' . esc_url( $ticket['ticket_url'] ) . '" target="_blank">' . esc_html( $ticket['title'] ) . '</a></td>
                         <td>' . esc_html( $ticket['status'] ) . '</td>
-                        <td>' . esc_html( $ticket['priority'] ) . '</td>
                         <td>' . esc_html( $ticket['updated_at'] ) . '</td>
                     </tr>';
             }
@@ -180,46 +180,19 @@ class MainWP_FluentSupport_Admin {
             
             <p><button id="mainwp-fluentsupport-fetch-btn" class="button button-primary">Fetch Latest Tickets</button></p>
             
-            <table class="wp-list-table widefat fixed striped">
+            <table class="ui stackable table mainwp-favorites-table dataTable unstackable" id="mainwp-fluentsupport-tickets-table">
                 <thead>
                     <tr>
                         <th width="15%">Client Site</th>
-                        <th width="40%">Ticket Title</th>
+                        <th width="50%">Ticket Title</th>
                         <th width="15%">Status</th>
-                        <th width="15%">Priority</th>
-                        <th width="15%">Last Update</th>
+                        <th width="20%">Last Update</th>
                     </tr>
                 </thead>
                 <tbody id="fluentsupport-ticket-data">
                     <?php echo $initial_html; ?>
                 </tbody>
             </table>
-            
-            <hr/>
-            <h4>⚙️ Fetch Debug Output</h4>
-            <table class="form-table">
-                <tr>
-                    <th>Target Site URL</th>
-                    <td>**<?php echo esc_html($support_site_url); ?>**</td>
-                </tr>
-                <tr>
-                    <th>API User</th>
-                    <td>**<?php echo esc_html($api_username); ?>**</td>
-                </tr>
-                <tr>
-                    <td colspan="2">**If button does nothing:** The JavaScript file <code>mainwp-fluentsupport.js</code> is not loading. Check your browser's **Network** tab.</td>
-                </tr>
-            </table>
-            <hr/>
-            <h4>✅ Last AJAX Call Details (Appears after you click "Fetch Latest Tickets")</h4>
-            <div id="mainwp-fluentsupport-ajax-debug">
-                <p>Status: Awaiting first fetch.</p>
-                <p>API Endpoint Call:</p>
-                <pre id="mainwp-fluentsupport-ajax-result">Click 'Fetch Latest Tickets' to update this section.</pre>
-            </div>
-            <script>
-                // JavaScript placeholder is now in mainwp-fluentsupport.js
-            </script>
         </div>
         <?php
     }
@@ -308,8 +281,9 @@ class MainWP_FluentSupport_Admin {
         $api_username = $this->get_api_username();
         $api_password = $this->get_api_password();
 
+        // Updated colspan to 4 (5 columns reduced to 4)
         if ( empty( $support_site_url ) || empty( $api_username ) || empty( $api_password ) ) {
-            $html_output = '<tr><td colspan="5">API connection details are missing. Check Settings.</td></tr>';
+            $html_output = '<tr><td colspan="4">API connection details are missing. Check Settings.</td></tr>';
             wp_send_json_error( array( 'html' => $html_output, 'message' => 'API connection details are missing. Check Settings.' ) );
         }
 
@@ -347,23 +321,20 @@ class MainWP_FluentSupport_Admin {
             foreach ($db_results['tickets'] as $ticket) {
                  $html_output .= '
                     <tr>
-                        <td>' . esc_html( $ticket['client_site_name'] ) . '</td>
+                        <td>' . $ticket['client_site_name'] . '</td>
                         <td><a href="' . esc_url( $ticket['ticket_url'] ) . '" target="_blank">' . esc_html( $ticket['title'] ) . '</a></td>
                         <td>' . esc_html( $ticket['status'] ) . '</td>
-                        <td>' . esc_html( $ticket['priority'] ) . '</td>
                         <td>' . esc_html( $ticket['updated_at'] ) . '</td>
                     </tr>';
             }
         } else {
-            $html_output = '<tr><td colspan="5">No tickets found in local database.</td></tr>';
+            // Updated colspan to 4
+            $html_output = '<tr><td colspan="4">No tickets found in local database.</td></tr>';
         }
 
 
-        // CRITICAL FIX: Ensure the final DB error message is displayed when returning the result
-        $final_message = $sync_message . ' (Version: ' . $this->version . ')';
-        if ( isset($wpdb->last_error) && !empty($wpdb->last_error) ) {
-            $final_message .= ' [SQL Error: ' . $wpdb->last_error . ']';
-        }
+        // Final message uses only the sync result message (no debug details)
+        $final_message = $sync_message;
 
         if ( $is_success ) {
              wp_send_json_success( array( 
