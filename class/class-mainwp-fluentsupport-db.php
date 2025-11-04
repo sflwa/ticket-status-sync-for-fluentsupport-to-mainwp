@@ -3,7 +3,6 @@
  * MainWP FluentSupport DB
  *
  * This class handles the DB process, primarily for structural integrity.
- * We use wp_options for settings, so no custom table creation is needed here.
  */
 
 namespace MainWP\Extensions\FluentSupport;
@@ -11,6 +10,9 @@ namespace MainWP\Extensions\FluentSupport;
 class MainWP_FluentSupport_DB {
 
 	private static $instance = null;
+    
+    private $table_name = 'mainwp_fluentsupport_tickets';
+    private $version = '1.0';
     
 	public static function get_instance() {
 		if ( null == self::$instance ) {
@@ -20,16 +22,48 @@ class MainWP_FluentSupport_DB {
 	}
 
 	public function __construct() {
-		// Nothing needed here for simple options, but structured for the pattern.
 	}
 
 	/**
 	 * Install Extension (Create custom tables if necessary).
-	 * The MainWP pattern requires this method to be called during activation.
-	 * We are using wp_options for simple settings, so this method remains empty.
 	 */
 	public function install() {
-        // This is where you would place code to create custom tables 
-        // if you were storing complex ticket history locally.
+        global $wpdb;
+        $table_name = $wpdb->prefix . $this->table_name;
+        $charset_collate = $wpdb->get_charset_collate();
+
+        // Check if the table already exists
+        if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) != $table_name ) {
+
+            // SQL for creating the new table
+            $sql = "CREATE TABLE $table_name (
+                id bigint(20) NOT NULL AUTO_INCREMENT,
+                ticket_id bigint(20) NOT NULL,
+                client_site_id bigint(20) DEFAULT 0,
+                client_site_url TEXT NOT NULL,
+                ticket_title longtext NOT NULL,
+                ticket_status varchar(20) NOT NULL,
+                ticket_priority varchar(20) NOT NULL,
+                ticket_url text NOT NULL,
+                last_update datetime NOT NULL,
+                created_at datetime NOT NULL,
+                PRIMARY KEY  (id),
+                UNIQUE KEY ticket_id (ticket_id)
+            ) $charset_collate;";
+
+            require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+            dbDelta( $sql );
+            
+            // Store the table version
+            update_option( $this->table_name . '_db_version', $this->version );
+        }
 	}
+    
+    /**
+     * Get the full table name with prefix.
+     */
+    public function get_full_table_name() {
+        global $wpdb;
+        return $wpdb->prefix . $this->table_name;
+    }
 }
