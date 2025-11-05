@@ -103,10 +103,39 @@ class MainWP_FluentSupport_Extension_Activator {
 		if ( function_exists( 'mainwp_current_user_can' ) && ! mainwp_current_user_can( 'extension', 'mainwp-fluentsupport' ) ) {
 			return;
 		}
+        
+        // NEW: Add metabox filter to register the widget
+        add_filter( 'mainwp_getmetaboxes', array( &$this, 'hook_get_metaboxes' ) );
+        
+        // NEW: Hook to trigger sync after MainWP site synchronization
+        add_action( 'mainwp_site_synced', array( &$this, 'hook_mainwp_site_synced' ), 10, 1 );
+
         // Initialize core components
 		MainWP_FluentSupport_Admin::get_instance();
         MainWP_FluentSupport_Overview::get_instance();
 	}
+
+    /**
+     * Hook to trigger a full ticket synchronization after a MainWP sync runs.
+     * This runs every time a site syncs, which is often enough to keep data relatively fresh.
+     *
+     * @param array $website MainWP website array data.
+     */
+    public function hook_mainwp_site_synced( $website ) {
+        // Ensure credentials are set before attempting to sync
+        $support_site_url = rtrim( get_option( 'mainwp_fluentsupport_site_url', '', false ), '/' );
+        $api_username     = get_option( 'mainwp_fluentsupport_api_username', '', false );
+        $api_password     = get_option( 'mainwp_fluentsupport_api_password', '', false );
+
+        if ( ! empty( $support_site_url ) && ! empty( $api_username ) && ! empty( $api_password ) ) {
+             // Perform the heavy sync lifting
+             MainWP\Extensions\FluentSupport\MainWP_FluentSupport_Utility::api_sync_tickets( 
+                $support_site_url, 
+                $api_username, 
+                $api_password 
+             );
+        }
+    }
 
 	public function admin_notices() {
         // ... (standard admin notices logic)
@@ -134,14 +163,39 @@ class MainWP_FluentSupport_Extension_Activator {
 	public function get_child_file() {
 		return $this->childFile;
 	}
+    
+    /**
+	 * Adds metabox (widget) on the MainWP Dashboard overview page via the 'mainwp_getmetaboxes' filter.
+	 *
+	 * @param array $metaboxes Array containing metaboxes data.
+	 *
+	 * @return array $metaboxes Updated array that contains metaboxes data.
+	 */
+	public function hook_get_metaboxes( $metaboxes ) {
+        
+		if ( ! is_array( $metaboxes ) ) {
+			$metaboxes = array();
+		}
+
+		$metaboxes[] = array(
+			'id'            => 'fluentsupport-tickets-widget',
+			'plugin'        => $this->childFile,
+			'key'           => $this->childFile, // Use childFile as the key workaround for self-developed extensions
+			'metabox_title' => __( 'FluentSupport Tickets', 'mainwp-fluentsupport' ),
+			'callback'      => array( MainWP_FluentSupport_Widget::get_instance(), 'render_metabox' ),
+		);
+
+		return $metaboxes;
+	}
 
     // Enqueue scripts
     public function enqueue_scripts( $hook ) {
         $plugin_slug = 'mainwp-fluentsupport';
-        $page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
-
-        // 🔑 FIX: Corrected the stylesheet handle from 'mainwp-style' to 'mainwp-css'
-        if ( $page === 'Extensions-Fs-Mainwp-Main' || strpos( $page, $plugin_slug ) !== false ) {
+        // Enqueue the JS if on the main dashboard page OR the extension page
+        $is_extension_page = strpos( $hook, 'Extensions-Fs-Mainwp-Main' ) !== false || strpos( $hook, 'mainwp-fluentsupport' ) !== false;
+        $is_mainwp_dashboard = $hook === 'toplevel_page_mainwp_tab'; // The main Dashboard overview hook
+        
+        if ( $is_extension_page || $is_mainwp_dashboard ) {
             
             wp_enqueue_script( 
                 $plugin_slug . '-js', 
@@ -174,4 +228,3 @@ class MainWP_FluentSupport_Extension_Activator {
 // Global instantiation, required by MainWP framework
 global $mainWPFluentSupportExtensionActivator;
 $mainWPFluentSupportExtensionActivator = new MainWP_FluentSupport_Extension_Activator();
-
