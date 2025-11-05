@@ -3,7 +3,7 @@
   Plugin Name: MainWP FluentSupport Extension
   Plugin URI: https://mainwp.dev/
   Description: Integrates FluentSupport ticket data from a single "Support Site" into the MainWP Dashboard.
-  Version: 1.1.9
+  Version: 1.2.0
   Author: Your Name
   Author URI: https://yourwebsite.com
   
@@ -38,7 +38,7 @@ class MainWP_FluentSupport_Extension_Activator {
 	protected $childFile;
 	protected $plugin_handle    = 'mainwp-fluentsupport';
 	protected $product_id       = 'MainWP FluentSupport Extension';
-	protected $software_version = '1.1.8';
+	protected $software_version = '1.2.0'; // Version incremented
 
 	public function __construct() {
 		$this->childFile = __FILE__;
@@ -129,14 +129,15 @@ class MainWP_FluentSupport_Extension_Activator {
 
         if ( ! empty( $support_site_url ) && ! empty( $api_username ) && ! empty( $api_password ) ) {
              // Perform the heavy sync lifting
-             MainWP\Extensions\FluentSupport\MainWP_FluentSupport_Utility::api_sync_tickets( 
+             // FIX: Using simple class name to resolve namespace error
+             MainWP_FluentSupport_Utility::api_sync_tickets( 
                 $support_site_url, 
                 $api_username, 
                 $api_password 
              );
         }
     }
-
+    
 	public function admin_notices() {
         // ... (standard admin notices logic)
 	}
@@ -228,3 +229,5 @@ class MainWP_FluentSupport_Extension_Activator {
 // Global instantiation, required by MainWP framework
 global $mainWPFluentSupportExtensionActivator;
 $mainWPFluentSupportExtensionActivator = new MainWP_FluentSupport_Extension_Activator();
+
+
