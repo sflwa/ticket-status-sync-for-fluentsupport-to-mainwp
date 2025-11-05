@@ -22,6 +22,9 @@ class MainWP_FluentSupport_Admin {
 		// Initialize the DB class (This will create the custom table on activation)
 		// CRITICAL FIX: Use the simple class name for correct namespace resolution within the same namespace.
 		MainWP_FluentSupport_DB::get_instance()->install(); 
+        
+        // NEW: Initialize the Widget class
+        MainWP_FluentSupport_Widget::get_instance();
 
 		// AJAX handlers for fetching tickets and saving settings
 		add_action( 'wp_ajax_mainwp_fluentsupport_fetch_tickets', array( $this, 'ajax_fetch_tickets' ) );
