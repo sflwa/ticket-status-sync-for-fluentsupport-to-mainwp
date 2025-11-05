@@ -18,14 +18,14 @@ class MainWP_FluentSupport_Utility {
 		}
 		return self::$instance;
 	}
-
+    
     // Get the correct filename for MainWP hooks
 	public static function get_file_name() {
 		global $mainWPFluentSupportExtensionActivator;
 		return $mainWPFluentSupportExtensionActivator->get_child_file();
 	}
     
-     /**
+    /**
      * Get Websites
      * Gets all child sites by querying the mainwp_wp database table directly.
      * * @param int|null $site_id Optional. The ID of a single site to fetch.
@@ -34,7 +34,7 @@ class MainWP_FluentSupport_Utility {
 	public static function get_websites( $site_id = null ) {
 		global $wpdb;
         
-        // CRITICAL FIX: Use the WordPress global prefix for MainWP tables
+        // Use the WordPress global prefix for MainWP tables
         $table_name = $wpdb->prefix . 'mainwp_wp'; 
         $results = array();
         
@@ -82,13 +82,12 @@ class MainWP_FluentSupport_Utility {
         $url_map = array();
 
         if ( is_array( $all_websites ) ) {
-					error_log('[FluentSupport DEBUG] $sites is an array');
-            foreach ( $all_websites as $site ) {
+            foreach ( $all_websites as $site ) { 
                 // $site['url'] corresponds to mainwp_wp.siteurl
                 // Trim whitespace, force URL to end with a trailing slash to match stored format
                 $normalized_url = rtrim( trim( $site['url'] ), '/' ) . '/'; 
                 $url_map[ $normalized_url ] = $site['id'];
-              }
+            }
         }
 
         return $url_map;
@@ -112,7 +111,6 @@ class MainWP_FluentSupport_Utility {
         // 2. Trim whitespace and add trailing slash to align with the MainWP stored format
         $normalized_url = rtrim( trim( $clean_url ), '/' ) . '/';
         
-       
         return isset( $site_map[ $normalized_url ] ) ? $site_map[ $normalized_url ] : 0;
     }
 
@@ -162,7 +160,6 @@ class MainWP_FluentSupport_Utility {
         $start_time = microtime(true);
         
         // NEW: Pre-compute the URL to ID map once before the main loop
-        // The debug output from map_client_sites_by_url will show up here.
         $site_url_to_id_map = self::map_client_sites_by_url(); 
         
         // Define data formats for wpdb::insert/update (CRITICAL FIX)
@@ -248,12 +245,7 @@ class MainWP_FluentSupport_Utility {
                 }
                 
                 // Get the MainWP Site ID using the new robust lookup function
-                // The debug output from get_site_id_by_url will show up here.
                 $client_site_id = self::get_site_id_by_url( $raw_website_url, $site_url_to_id_map );
-                
-                // === DEBUG LOGGING ===
-              //  error_log('[FluentSupport DEBUG] TICKET: ' . $ticket_id . ' | Site ID Lookup Result: ' . $client_site_id);
-                // =====================
                 
                 // Clean the URL for storage (strip HTML, trim whitespace, and ADD trailing slash)
                 // This value is stored in mainwp_fluentsupport_tickets.client_site_url
@@ -307,22 +299,60 @@ class MainWP_FluentSupport_Utility {
 
     /**
      * Fetches ticket data from the local database for display.
+     * * @param array $args {
+     * @type array $status Array of status strings to filter by. Default: empty (all tickets).
+     * @type int $limit Maximum number of results to return. Default: 10.
+     * @type int $site_id Site ID to filter tickets for. Default: 0 (all sites).
+     * }
+     * @return array Ticket results array.
      */
-    public static function api_get_tickets_from_db() {
+    public static function api_get_tickets_from_db( $args = array() ) {
         global $wpdb;
-        // FIX: Remove redundant namespace prefix
         $db = MainWP_FluentSupport_DB::get_instance();
         $table_name = $db->get_full_table_name();
-
-        $results = $wpdb->get_results( 
-            "SELECT * FROM $table_name ORDER BY last_update DESC LIMIT 10", 
-            ARRAY_A 
+        
+        $defaults = array(
+            'status' => array(), // Empty array means all statuses
+            'limit'  => 10,
+            'site_id' => 0, 
         );
+        $args = wp_parse_args( $args, $defaults );
 
+        $where_clauses = array();
+        $sql_params = array();
+        
+        // Site ID Filter
+        if ( ! empty( $args['site_id'] ) ) {
+            $where_clauses[] = "client_site_id = %d";
+            $sql_params[] = $args['site_id'];
+        }
+
+        // Status Filter
+        if ( ! empty( $args['status'] ) && is_array( $args['status'] ) ) {
+            $placeholders = implode( ',', array_fill( 0, count( $args['status'] ), '%s' ) );
+            $where_clauses[] = "ticket_status IN ({$placeholders})";
+            $sql_params = array_merge( $sql_params, $args['status'] );
+        }
+        
+        $where_sql = ! empty( $where_clauses ) ? ' WHERE ' . implode( ' AND ', $where_clauses ) : '';
+        
+        $limit = intval( $args['limit'] );
+        $limit_sql = $limit > 0 ? " LIMIT {$limit}" : '';
+
+        // Prepare and execute query
+        $sql = "SELECT * FROM {$table_name} {$where_sql} ORDER BY last_update DESC {$limit_sql}";
+        
+        if ( ! empty( $sql_params ) ) {
+             $results = $wpdb->get_results( $wpdb->prepare( $sql, ...$sql_params ), ARRAY_A );
+        } else {
+             $results = $wpdb->get_results( $sql, ARRAY_A );
+        }
+        
         $parsed_tickets = array();
         
-        // Fetch all client sites to map client_site_id to name
-        $mainwp_client_sites = self::get_websites(); 
+        // Fetch client sites to map client_site_id to name
+        // Optimization: Fetch only the necessary site if site_id is provided.
+        $mainwp_client_sites = self::get_websites( ! empty( $args['site_id'] ) ? $args['site_id'] : null ); 
         $site_name_map = array();
         if ( is_array( $mainwp_client_sites ) ) {
             foreach ( $mainwp_client_sites as $site ) {
@@ -335,7 +365,7 @@ class MainWP_FluentSupport_Utility {
             
             // Build the MainWP dashboard link.
             $mainwp_dashboard_url = '';
-            $ticket_client_id = (string)$ticket['client_site_id']; // CRITICAL FIX: Cast ticket ID to string for lookup
+            $ticket_client_id = (string)$ticket['client_site_id']; 
             
             if ( $ticket_client_id > 0 ) {
                  $mainwp_dashboard_url = admin_url( 'admin.php?page=managesites&dashboard=' . $ticket_client_id );
@@ -355,12 +385,52 @@ class MainWP_FluentSupport_Utility {
             $parsed_tickets[] = array(
                 'title'            => $ticket['ticket_title'],
                 'status'           => ucfirst( $ticket['ticket_status'] ),
-                'updated_at'       => date( 'M j, Y H:i', strtotime( $ticket['last_update'] ) ),
+                'updated_at'       => $ticket['last_update'], // Pass the raw datetime string for widget formatting
                 'ticket_url'       => $ticket['ticket_url'],
                 'client_site_name' => $client_site_name,
+                'client_site_id'   => $ticket_client_id, // Required for the SiteOpen link
             );
         }
 
         return array( 'tickets' => $parsed_tickets, 'success' => true );
+    }
+
+    /**
+     * Gets the count of tickets based on status.
+     * * @param array $status Array of status strings to count by.
+     * @param int $site_id Site ID to filter by. Default: 0 (all sites).
+     * @return int Count of tickets.
+     */
+    public static function get_ticket_count( $status = array(), $site_id = 0 ) {
+        global $wpdb;
+        $db = MainWP_FluentSupport_DB::get_instance();
+        $table_name = $db->get_full_table_name();
+        
+        $where_clauses = array();
+        $sql_params = array();
+
+        // Site ID Filter
+        if ( ! empty( $site_id ) ) {
+            $where_clauses[] = "client_site_id = %d";
+            $sql_params[] = $site_id;
+        }
+
+        if ( ! empty( $status ) && is_array( $status ) ) {
+            $placeholders = implode( ',', array_fill( 0, count( $status ), '%s' ) );
+            $where_clauses[] = "ticket_status IN ({$placeholders})";
+            $sql_params = array_merge( $sql_params, $status );
+        }
+        
+        $where_sql = ! empty( $where_clauses ) ? ' WHERE ' . implode( ' AND ', $where_clauses ) : '';
+
+        $sql = "SELECT COUNT(id) FROM {$table_name} {$where_sql}";
+        
+        if ( ! empty( $sql_params ) ) {
+             $count = $wpdb->get_var( $wpdb->prepare( $sql, ...$sql_params ) );
+        } else {
+             $count = $wpdb->get_var( $sql );
+        }
+
+        return intval( $count );
     }
 }
