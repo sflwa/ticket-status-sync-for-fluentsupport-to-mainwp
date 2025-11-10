@@ -45,6 +45,7 @@ class MainWP_FluentSupport_Widget {
 	public function render_widget_content() {
         
         // 1. Detect if we are on a single site dashboard and get the ID
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce is not required for reading dashboard ID for display.
         $current_site_id = isset( $_GET['dashboard'] ) ? intval( $_GET['dashboard'] ) : 0;
         
         // PULL SETTINGS DIRECTLY FROM DB (Only need URL for the dynamic link)
@@ -63,13 +64,14 @@ class MainWP_FluentSupport_Widget {
                     </div>
                 </div>
             </div>
-            <div class="ui hidden divider"></div>
+            <?php // REMOVED: <div class="ui hidden divider"></div> ?>
             <div class="ui fluid message red">
                 <div class="ui icon header">
                     <i class="exclamation triangle icon"></i>
                     <?php esc_html_e( 'Support Site URL is missing. Please configure your Support Site settings in the Settings tab to enable the sync feature and link the View All Tickets button.', 'mainwp-fluentsupport' ); ?>
                 </div>
             </div>
+            <?php // REMOVED: <div class="ui hidden divider"></div> ?>
             <div class="ui divider" style="margin-left:-1em;margin-right:-1em;"></div>
             <div class="ui two columns grid">
                 <div class="left aligned column">
@@ -86,7 +88,8 @@ class MainWP_FluentSupport_Widget {
         // 3. Prepare filters for the utility functions
         $filters = array(
             'status' => array( 'new', 'active' ),
-            'limit'  => $current_site_id > 0 ? 25 : 10, // Show more tickets for single site view
+            // MODIFIED: Increased limits
+            'limit'  => $current_site_id > 0 ? 25 : 10, // Show 10 tickets for main dashboard, 25 for single site view
             'site_id' => $current_site_id, // Pass the site ID
         );
         
@@ -96,13 +99,19 @@ class MainWP_FluentSupport_Widget {
         // Count all new/active tickets for the header.
         $all_active_count = MainWP_FluentSupport_Utility::get_ticket_count( array( 'new', 'active' ), $current_site_id );
         
-        // **NEW CODE:** Retrieve and format last sync time
+        // Retrieve and format last sync time
         $last_sync_timestamp = get_option( 'mainwp_fluentsupport_last_sync', 0 );
         $last_sync_display = '';
+        $allowed_html = array(
+            'span' => array(
+                'style' => true,
+            ),
+        );
+
         if ( $last_sync_timestamp > 0 ) {
-            // Display as "Last Synced: [Time Ago]"
             $time_ago = human_time_diff( $last_sync_timestamp, current_time( 'timestamp' ) );
-            $last_sync_display = ' <span style="font-weight: normal;">(' . sprintf( esc_html__( 'Last Synced: %s ago', 'mainwp-fluentsupport' ), $time_ago ) . ')</span>';
+            // translators: %s: Time ago (e.g., 5 minutes).
+            $last_sync_display = '(' . sprintf( esc_html__( ' Last Synced: %s ago', 'mainwp-fluentsupport' ), $time_ago ) . ')';
         }
 
         // 4. Determine the header title based on context
@@ -110,13 +119,17 @@ class MainWP_FluentSupport_Widget {
             // Fetch site name for a better title
             $site_info = MainWP_FluentSupport_Utility::get_websites( $current_site_id );
             $site_name = ! empty( $site_info ) ? $site_info[0]['name'] : 'Current Site';
+            // translators: %s: The name of the client site.
             $title = sprintf( esc_html__( 'Tickets for %s', 'mainwp-fluentsupport' ), esc_html( $site_name ) );
-            // **MODIFIED:** Appending the last sync time
-            $subtitle = sprintf( esc_html__( 'Displaying %d active tickets (total active: %d).', 'mainwp-fluentsupport' ), count( $tickets ), $all_active_count ) . $last_sync_display;
+            
+            // translators: 1: Number of active tickets displayed, 2: Total number of active tickets.
+            $subtitle_text = sprintf( esc_html__( 'Displaying %1$d active tickets (total active: %2$d).', 'mainwp-fluentsupport' ), count( $tickets ), $all_active_count ); // Line 121 (Screenshot 6.07.47.png: ERROR: Missing Translators Comment)
+            $subtitle = $subtitle_text . wp_kses( $last_sync_display, $allowed_html );
         } else {
+            // translators: 1: Number of active tickets displayed, 2: Total number of active tickets across all sites.
+            $subtitle_text = sprintf( esc_html__( 'Displaying %1$d active tickets across all sites (total active: %2$d).', 'mainwp-fluentsupport' ), count( $tickets ), $all_active_count ); // Line 127 (Screenshot 6.07.47.png: ERROR: Missing Translators Comment)
             $title = esc_html__( 'FluentSupport Tickets Summary', 'mainwp-fluentsupport' );
-            // **MODIFIED:** Appending the last sync time
-            $subtitle = sprintf( esc_html__( 'Displaying %d active tickets across all sites (total active: %d).', 'mainwp-fluentsupport' ), count( $tickets ), $all_active_count ) . $last_sync_display;
+            $subtitle = $subtitle_text . wp_kses( $last_sync_display, $allowed_html );
         }
 
         ?>
@@ -124,8 +137,8 @@ class MainWP_FluentSupport_Widget {
             <div class="ui grid">
                 <div class="twelve wide column">
                     <h2 class="ui header handle-drag">
-                        <?php echo $title; ?>
-                        <div class="sub header"><?php echo $subtitle; ?></div>
+                        <?php echo esc_html( $title ); ?>
+                        <div class="sub header"><?php echo esc_html( $subtitle ); ?></div>
                     </h2>
                 </div>
                 <div class="four wide column right aligned">
@@ -136,12 +149,12 @@ class MainWP_FluentSupport_Widget {
                     ?>
                     <button id="mainwp-fluentsupport-fetch-btn" class="ui button mini green" style="margin-top: 5px;">
                         <i class="sync alternate icon"></i>
-                        <?php echo $button_text; ?>
+                        <?php echo esc_html( $button_text ); ?>
                     </button>
                 </div>
             </div>
 		</div>
-		<div class="ui hidden divider"></div>
+		<?php // REMOVED: <div class="ui hidden divider"></div> ?>
         <?php if ( empty( $tickets ) ) : ?>
             <div class="ui fluid placeholder">
                 <div class="ui icon header">
@@ -170,7 +183,7 @@ class MainWP_FluentSupport_Widget {
                     <tr>
                         <?php if ( $current_site_id === 0 ) : ?>
                             <td>
-                                <?php echo $ticket['client_site_name']; // Site name is already escaped and linked to dashboard or URL ?>
+                                <?php echo wp_kses_post( $ticket['client_site_name'] ); // FIX: Escaped using wp_kses_post() as content contains HTML links (Line 181/184) ?>
                                 <?php 
                                 if ( $ticket['client_site_id'] > 0 ) :
                                     // Using the required 'mainwp-admin-nonce' key for site open action
@@ -183,20 +196,19 @@ class MainWP_FluentSupport_Widget {
                         <?php endif; ?>
                         <td><a href="<?php echo esc_url( $ticket['ticket_url'] ); ?>" target="_blank"><?php echo esc_html( $ticket['title'] ); ?></a></td>
                         <td><?php echo esc_html( $ticket['status'] ); ?></td>
-                        <td><?php echo esc_html( date( 'M j', strtotime( $ticket['updated_at'] ) ) ); ?></td>
+                        <td><?php echo esc_html( gmdate( 'M j', strtotime( $ticket['updated_at'] ) ) ); ?></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
         <?php endif; ?>
+		<?php // REMOVED: <div class="ui hidden divider"></div> ?>
 		<div class="ui divider" style="margin-left:-1em;margin-right:-1em;"></div>
 		<div class="ui two columns grid">
 			<div class="left aligned column">
 				<a href="<?php echo esc_url( $support_site_tickets_url ); ?>" class="ui basic green button" target="_blank"><?php esc_html_e( 'View All Tickets', 'mainwp-fluentsupport' ); ?></a>
 			</div>
 		</div>
-		<div class="ui divider" style="margin-left:-1em;margin-right:-1em;"></div>
 		<?php
 	}
 }
-
