@@ -294,6 +294,9 @@ class MainWP_FluentSupport_Utility {
 
         } while ( $current_page <= $total_pages && (microtime(true) - $start_time) < 500 ); // Max 500s limit
 
+        // **NEW CODE:** Save the last successful sync timestamp
+        update_option( 'mainwp_fluentsupport_last_sync', current_time( 'timestamp' ) );
+
         return array( 'success' => true, 'synced' => $synced_count );
     }
 
@@ -434,3 +437,4 @@ class MainWP_FluentSupport_Utility {
         return intval( $count );
     }
 }
+
