@@ -37,7 +37,10 @@ class MainWP_FluentSupport_DB {
         $collation_sql = 'CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_520_ci';
 
         // Check if the table already exists
-        if ( $wpdb->get_var( "SHOW TABLES LIKE '$table_name'" ) != $table_name ) {
+        // FIX: Use $wpdb->prepare() for checking table existence.
+        // phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.NoCaching -- Necessary for checking table existence at install time.
+        if ( $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $table_name ) ) != $table_name ) {
+        // phpcs:enable
 
             // SQL for creating the new table
             $sql = "CREATE TABLE $table_name (
@@ -56,6 +59,7 @@ class MainWP_FluentSupport_DB {
             ) $charset_collate;";
 
             require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange -- dbDelta is required for safe schema management.
             dbDelta( $sql );
             
             // Store the table version
@@ -71,3 +75,4 @@ class MainWP_FluentSupport_DB {
         return $wpdb->prefix . $this->table_name;
     }
 }
+
