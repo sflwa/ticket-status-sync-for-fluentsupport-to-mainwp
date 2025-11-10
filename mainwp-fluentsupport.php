@@ -107,8 +107,11 @@ class MainWP_FluentSupport_Extension_Activator {
         // NEW: Add metabox filter to register the widget
         add_filter( 'mainwp_getmetaboxes', array( &$this, 'hook_get_metaboxes' ) );
         
-        // NEW: Hook to trigger sync after MainWP site synchronization
-        add_action( 'mainwp_site_synced', array( &$this, 'hook_mainwp_site_synced' ), 10, 1 );
+        // **REMOVED: Hook to trigger sync after MainWP site synchronization (to prevent slowdown)**
+        
+        // **NEW: Add WP-Cron hooks for background synchronization**
+        add_filter( 'cron_schedules', array( $this, 'add_five_minute_cron_interval' ) );
+        add_action( 'mainwp_fluentsupport_sync_tickets_cron', array( $this, 'mainwp_fluentsupport_sync_tickets_cron' ) );
 
         // Initialize core components
 		MainWP_FluentSupport_Admin::get_instance();
@@ -116,12 +119,20 @@ class MainWP_FluentSupport_Extension_Activator {
 	}
 
     /**
-     * Hook to trigger a full ticket synchronization after a MainWP sync runs.
-     * This runs every time a site syncs, which is often enough to keep data relatively fresh.
-     *
-     * @param array $website MainWP website array data.
+     * Adds a 5-minute interval to the cron schedules.
      */
-    public function hook_mainwp_site_synced( $website ) {
+    public function add_five_minute_cron_interval( $schedules ) {
+        $schedules['five_minutes'] = array(
+            'interval' => 5 * 60, // 5 minutes in seconds
+            'display'  => esc_html__( 'Every Five Minutes', 'mainwp-fluentsupport' ),
+        );
+        return $schedules;
+    }
+    
+    /**
+     * The scheduled cron event handler. Triggers the ticket synchronization.
+     */
+    public function mainwp_fluentsupport_sync_tickets_cron() {
         // Ensure credentials are set before attempting to sync
         $support_site_url = rtrim( get_option( 'mainwp_fluentsupport_site_url', '', false ), '/' );
         $api_username     = get_option( 'mainwp_fluentsupport_api_username', '', false );
@@ -129,7 +140,6 @@ class MainWP_FluentSupport_Extension_Activator {
 
         if ( ! empty( $support_site_url ) && ! empty( $api_username ) && ! empty( $api_password ) ) {
              // Perform the heavy sync lifting
-             // FIX: Using simple class name to resolve namespace error
              MainWP_FluentSupport_Utility::api_sync_tickets( 
                 $support_site_url, 
                 $api_username, 
@@ -137,6 +147,8 @@ class MainWP_FluentSupport_Extension_Activator {
              );
         }
     }
+    
+    // **REMOVED: hook_mainwp_site_synced() method is no longer needed.**
     
 	public function admin_notices() {
         // ... (standard admin notices logic)
@@ -149,11 +161,23 @@ class MainWP_FluentSupport_Extension_Activator {
 			'software_version' => $this->software_version,
 		);
 		do_action( 'mainwp_activate_extention', $this->plugin_handle, $options );
+        
+        // CRON: Schedule the recurring event on activation
+        if ( ! wp_next_scheduled( 'mainwp_fluentsupport_sync_tickets_cron' ) ) {
+            // Schedule the event to run every 5 minutes
+            wp_schedule_event( time(), 'five_minutes', 'mainwp_fluentsupport_sync_tickets_cron' ); 
+        }
 	}
 
 	public function deactivate() {
         // Calls the MainWP deactivation hook
 		do_action( 'mainwp_deactivate_extention', $this->plugin_handle );
+        
+        // CRON: Clear the scheduled event on deactivation
+        $timestamp = wp_next_scheduled( 'mainwp_fluentsupport_sync_tickets_cron' );
+        if ( $timestamp ) {
+            wp_unschedule_event( $timestamp, 'mainwp_fluentsupport_sync_tickets_cron' );
+        }
 	}
     
     // Utility getter methods needed by other classes
@@ -229,5 +253,3 @@ class MainWP_FluentSupport_Extension_Activator {
 // Global instantiation, required by MainWP framework
 global $mainWPFluentSupportExtensionActivator;
 $mainWPFluentSupportExtensionActivator = new MainWP_FluentSupport_Extension_Activator();
-
-
