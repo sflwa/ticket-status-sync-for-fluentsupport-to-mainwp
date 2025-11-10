@@ -193,7 +193,7 @@ class MainWP_FluentSupport_Admin {
                     </tr>
                 </thead>
                 <tbody id="fluentsupport-ticket-data">
-                    <?php echo $initial_html; ?>
+                    <?php echo wp_kses_post( $initial_html ); // FIX: Escaping output with wp_kses_post() ?>
                 </tbody>
             </table>
         </div>
