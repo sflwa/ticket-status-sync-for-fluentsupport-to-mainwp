@@ -70,7 +70,6 @@ class MainWP_FluentSupport_Widget {
                     <?php esc_html_e( 'Support Site URL is missing. Please configure your Support Site settings in the Settings tab to enable the sync feature and link the View All Tickets button.', 'mainwp-fluentsupport' ); ?>
                 </div>
             </div>
-            <div class="ui hidden divider"></div>
             <div class="ui divider" style="margin-left:-1em;margin-right:-1em;"></div>
             <div class="ui two columns grid">
                 <div class="left aligned column">
@@ -87,7 +86,7 @@ class MainWP_FluentSupport_Widget {
         // 3. Prepare filters for the utility functions
         $filters = array(
             'status' => array( 'new', 'active' ),
-            'limit'  => $current_site_id > 0 ? 10 : 5, // Show more tickets for single site view
+            'limit'  => $current_site_id > 0 ? 25 : 10, // Show more tickets for single site view
             'site_id' => $current_site_id, // Pass the site ID
         );
         
@@ -96,6 +95,15 @@ class MainWP_FluentSupport_Widget {
         
         // Count all new/active tickets for the header.
         $all_active_count = MainWP_FluentSupport_Utility::get_ticket_count( array( 'new', 'active' ), $current_site_id );
+        
+        // **NEW CODE:** Retrieve and format last sync time
+        $last_sync_timestamp = get_option( 'mainwp_fluentsupport_last_sync', 0 );
+        $last_sync_display = '';
+        if ( $last_sync_timestamp > 0 ) {
+            // Display as "Last Synced: [Time Ago]"
+            $time_ago = human_time_diff( $last_sync_timestamp, current_time( 'timestamp' ) );
+            $last_sync_display = ' <span style="font-weight: normal;">(' . sprintf( esc_html__( 'Last Synced: %s ago', 'mainwp-fluentsupport' ), $time_ago ) . ')</span>';
+        }
 
         // 4. Determine the header title based on context
         if ( $current_site_id > 0 ) {
@@ -103,10 +111,12 @@ class MainWP_FluentSupport_Widget {
             $site_info = MainWP_FluentSupport_Utility::get_websites( $current_site_id );
             $site_name = ! empty( $site_info ) ? $site_info[0]['name'] : 'Current Site';
             $title = sprintf( esc_html__( 'Tickets for %s', 'mainwp-fluentsupport' ), esc_html( $site_name ) );
-            $subtitle = sprintf( esc_html__( 'Displaying %d active tickets (total active: %d).', 'mainwp-fluentsupport' ), count( $tickets ), $all_active_count );
+            // **MODIFIED:** Appending the last sync time
+            $subtitle = sprintf( esc_html__( 'Displaying %d active tickets (total active: %d).', 'mainwp-fluentsupport' ), count( $tickets ), $all_active_count ) . $last_sync_display;
         } else {
             $title = esc_html__( 'FluentSupport Tickets Summary', 'mainwp-fluentsupport' );
-            $subtitle = sprintf( esc_html__( 'Displaying %d active tickets across all sites (total active: %d).', 'mainwp-fluentsupport' ), count( $tickets ), $all_active_count );
+            // **MODIFIED:** Appending the last sync time
+            $subtitle = sprintf( esc_html__( 'Displaying %d active tickets across all sites (total active: %d).', 'mainwp-fluentsupport' ), count( $tickets ), $all_active_count ) . $last_sync_display;
         }
 
         ?>
@@ -179,13 +189,14 @@ class MainWP_FluentSupport_Widget {
                 </tbody>
             </table>
         <?php endif; ?>
-		<div class="ui hidden divider"></div>
 		<div class="ui divider" style="margin-left:-1em;margin-right:-1em;"></div>
 		<div class="ui two columns grid">
 			<div class="left aligned column">
 				<a href="<?php echo esc_url( $support_site_tickets_url ); ?>" class="ui basic green button" target="_blank"><?php esc_html_e( 'View All Tickets', 'mainwp-fluentsupport' ); ?></a>
 			</div>
 		</div>
+		<div class="ui divider" style="margin-left:-1em;margin-right:-1em;"></div>
 		<?php
 	}
 }
+
