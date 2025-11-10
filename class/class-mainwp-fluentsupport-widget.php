@@ -111,7 +111,7 @@ class MainWP_FluentSupport_Widget {
         if ( $last_sync_timestamp > 0 ) {
             $time_ago = human_time_diff( $last_sync_timestamp, current_time( 'timestamp' ) );
             // translators: %s: Time ago (e.g., 5 minutes).
-            $last_sync_display = '(' . sprintf( esc_html__( ' Last Synced: %s ago', 'mainwp-fluentsupport' ), $time_ago ) . ')';
+            $last_sync_display = '(' . sprintf( esc_html__( 'Last Synced: %s ago', 'mainwp-fluentsupport' ), $time_ago ) . ')';
         }
 
         // 4. Determine the header title based on context
@@ -129,7 +129,7 @@ class MainWP_FluentSupport_Widget {
             // translators: 1: Number of active tickets displayed, 2: Total number of active tickets across all sites.
             $subtitle_text = sprintf( esc_html__( 'Displaying %1$d active tickets across all sites (total active: %2$d).', 'mainwp-fluentsupport' ), count( $tickets ), $all_active_count ); // Line 127 (Screenshot 6.07.47.png: ERROR: Missing Translators Comment)
             $title = esc_html__( 'FluentSupport Tickets Summary', 'mainwp-fluentsupport' );
-            $subtitle = $subtitle_text . wp_kses( $last_sync_display, $allowed_html );
+            $subtitle = $subtitle_text .'   '.  wp_kses( $last_sync_display, $allowed_html );
         }
 
         ?>
