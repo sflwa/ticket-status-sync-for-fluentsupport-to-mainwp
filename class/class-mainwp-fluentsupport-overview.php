@@ -34,12 +34,14 @@ class MainWP_FluentSupport_Overview {
         global $plugin_page;
         $base_page_slug = ! empty( $plugin_page ) ? $plugin_page : 'Extensions-Mainwp-FluentSupport'; 
         
-        if ( isset( $_GET['tab'] ) ) {
-            if ( $_GET['tab'] == 'overview' ) {
-                $current_tab = 'overview';
-            } elseif ( $_GET['tab'] == 'settings' ) {
-                $current_tab = 'settings';
-            }
+        // FIX: Nonce and Superglobal Input Warning. Sanitize input before processing.
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Tab switching via GET is for UI state, not data modification.
+        $current_tab_input = isset( $_GET['tab'] ) ? sanitize_text_field( wp_unslash( $_GET['tab'] ) ) : '';
+
+        if ( 'overview' === $current_tab_input ) {
+            $current_tab = 'overview';
+        } elseif ( 'settings' === $current_tab_input ) {
+            $current_tab = 'settings';
         }
         
         // Use the proper page header wrapper
@@ -47,8 +49,9 @@ class MainWP_FluentSupport_Overview {
 
         ?>
 		<div class="ui labeled icon inverted menu mainwp-sub-submenu" id="mainwp-fluentsupport-menu">
-			<a href="admin.php?page=<?php echo $base_page_slug; ?>&tab=overview" class="item <?php echo ( $current_tab == 'overview' ) ? 'active' : ''; ?>"><i class="tasks icon"></i> <?php esc_html_e( 'Tickets Overview', 'mainwp-fluentsupport' ); ?></a>
-			<a href="admin.php?page=<?php echo $base_page_slug; ?>&tab=settings" class="item <?php echo ( $current_tab == 'settings' || $current_tab == '' ) ? 'active' : ''; ?>"><i class="file alternate outline icon"></i> <?php esc_html_e( 'Settings', 'mainwp-fluentsupport' ); ?></a>
+            <?php // FIX: Escape URLs using esc_url() ?>
+			<a href="<?php echo esc_url( 'admin.php?page=' . $base_page_slug . '&tab=overview' ); ?>" class="item <?php echo ( $current_tab == 'overview' ) ? 'active' : ''; ?>"><i class="tasks icon"></i> <?php esc_html_e( 'Tickets Overview', 'mainwp-fluentsupport' ); ?></a>
+			<a href="<?php echo esc_url( 'admin.php?page=' . $base_page_slug . '&tab=settings' ); ?>" class="item <?php echo ( $current_tab == 'settings' || $current_tab == '' ) ? 'active' : ''; ?>"><i class="file alternate outline icon"></i> <?php esc_html_e( 'Settings', 'mainwp-fluentsupport' ); ?></a>
 		</div>
 
         <div id="mainwp-fluentsupport-extension" class="wrap">
@@ -69,3 +72,4 @@ class MainWP_FluentSupport_Overview {
         do_action( 'mainwp_pagefooter_extensions', MAINWP_FLUENTSUPPORT_PLUGIN_FILE );
     }
 }
+
