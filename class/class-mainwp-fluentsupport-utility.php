@@ -44,14 +44,15 @@ class MainWP_FluentSupport_Utility {
                 "SELECT id, url, name FROM {$table_name} WHERE id = %d",
                 $site_id
             );
-            $result = $wpdb->get_row( $sql, ARRAY_A );
+            $result = $wpdb->get_row( $sql, ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.NoCaching -- Custom table query necessary for extension logic.
             if ( $result ) {
                 $results[] = $result;
             }
         } else {
             // Fetch all sites
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $table_name is fixed and contains no user input.
             $sql = "SELECT id, url, name FROM {$table_name}";
-            $results = $wpdb->get_results( $sql, ARRAY_A );
+            $results = $wpdb->get_results( $sql, ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.NoCaching -- Custom table query necessary for extension logic.
         }
 
 		return is_array($results) ? $results : array();
@@ -106,7 +107,7 @@ class MainWP_FluentSupport_Utility {
         }
 
         // 1. Clean (strip HTML) the incoming ticket URL
-        $clean_url = strip_tags( $website_url );
+        $clean_url = wp_strip_all_tags( $website_url );
         
         // 2. Trim whitespace and add trailing slash to align with the MainWP stored format
         $normalized_url = rtrim( trim( $clean_url ), '/' ) . '/';
@@ -248,8 +249,7 @@ class MainWP_FluentSupport_Utility {
                 $client_site_id = self::get_site_id_by_url( $raw_website_url, $site_url_to_id_map );
                 
                 // Clean the URL for storage (strip HTML, trim whitespace, and ADD trailing slash)
-                // This value is stored in mainwp_fluentsupport_tickets.client_site_url
-                $website_url = strip_tags( $raw_website_url );
+                $website_url = wp_strip_all_tags( $raw_website_url );
                 $website_url = rtrim( trim( $website_url ), '/' ) . '/'; // Explicitly add trailing slash for storage
 
                 
@@ -257,8 +257,8 @@ class MainWP_FluentSupport_Utility {
                 $last_update_str = isset($ticket['updated_at']) ? $ticket['updated_at'] : current_time('mysql');
                 $created_at_str = isset($ticket['created_at']) ? $ticket['created_at'] : current_time('mysql');
                 
-                $last_update_mysql = date('Y-m-d H:i:s', strtotime($last_update_str) ?: time());
-                $created_at_mysql = date('Y-m-d H:i:s', strtotime($created_at_str) ?: time());
+                $last_update_mysql = gmdate('Y-m-d H:i:s', strtotime($last_update_str) ?: time());
+                $created_at_mysql = gmdate('Y-m-d H:i:s', strtotime($created_at_str) ?: time());
 
 
                 $data_to_save = array(
@@ -275,7 +275,10 @@ class MainWP_FluentSupport_Utility {
                 
                 // --- INSERT or UPDATE Logic (UPSERT) ---
                 
-                $existing_ticket = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM $table_name WHERE ticket_id = %d", $ticket_id ) );
+                $existing_ticket = $wpdb->get_row( $wpdb->prepare( 
+                    "SELECT id FROM {$table_name} WHERE ticket_id = %d", 
+                    $ticket_id 
+                ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.NoCaching -- Necessary for upsert logic; data caching is handled by the overall sync process.
 
                 if ( $existing_ticket ) {
                     // Update existing record
@@ -334,6 +337,7 @@ class MainWP_FluentSupport_Utility {
         if ( ! empty( $args['status'] ) && is_array( $args['status'] ) ) {
             $placeholders = implode( ',', array_fill( 0, count( $args['status'] ), '%s' ) );
             $where_clauses[] = "ticket_status IN ({$placeholders})";
+            // NOTE: Status array is merged *after* site_id, maintaining correct order for prepare.
             $sql_params = array_merge( $sql_params, $args['status'] );
         }
         
@@ -346,9 +350,10 @@ class MainWP_FluentSupport_Utility {
         $sql = "SELECT * FROM {$table_name} {$where_sql} ORDER BY last_update DESC {$limit_sql}";
         
         if ( ! empty( $sql_params ) ) {
-             $results = $wpdb->get_results( $wpdb->prepare( $sql, ...$sql_params ), ARRAY_A );
+             $results = $wpdb->get_results( $wpdb->prepare( $sql, ...$sql_params ), ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.NoCaching -- Necessary for retrieving tickets, caching is handled higher up.
         } else {
-             $results = $wpdb->get_results( $sql, ARRAY_A );
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql only contains $table_name and structural clauses, no user variables.
+             $results = $wpdb->get_results( $sql, ARRAY_A ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.NoCaching -- Necessary for retrieving tickets, caching is handled higher up.
         }
         
         $parsed_tickets = array();
@@ -426,12 +431,14 @@ class MainWP_FluentSupport_Utility {
         
         $where_sql = ! empty( $where_clauses ) ? ' WHERE ' . implode( ' AND ', $where_clauses ) : '';
 
+        // FIX: Use $wpdb->prepare() for the full query if params exist.
         $sql = "SELECT COUNT(id) FROM {$table_name} {$where_sql}";
         
         if ( ! empty( $sql_params ) ) {
-             $count = $wpdb->get_var( $wpdb->prepare( $sql, ...$sql_params ) );
+             $count = $wpdb->get_var( $wpdb->prepare( $sql, ...$sql_params ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.NoCaching -- Necessary for widget count.
         } else {
-             $count = $wpdb->get_var( $sql );
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- $sql only contains $table_name and structural clauses, no user variables.
+             $count = $wpdb->get_var( $sql ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.NoCaching -- Necessary for widget count.
         }
 
         return intval( $count );
