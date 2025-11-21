@@ -9,7 +9,7 @@ namespace MainWP\Extensions\FluentSupport;
 class MainWP_FluentSupport_Overview {
 
     private static $instance = null;
-    private $plugin_slug = 'mainwp-fluentsupport';
+    private $plugin_slug = 'ticket-status-sync-for-fluentsupport-to-mainwp';
 
     // ... (get_instance and __construct remain the same) ...
     public static function get_instance() {
@@ -50,8 +50,8 @@ class MainWP_FluentSupport_Overview {
         ?>
 		<div class="ui labeled icon inverted menu mainwp-sub-submenu" id="mainwp-fluentsupport-menu">
             <?php // FIX: Escape URLs using esc_url() ?>
-			<a href="<?php echo esc_url( 'admin.php?page=' . $base_page_slug . '&tab=overview' ); ?>" class="item <?php echo ( $current_tab == 'overview' ) ? 'active' : ''; ?>"><i class="tasks icon"></i> <?php esc_html_e( 'Tickets Overview', 'mainwp-fluentsupport' ); ?></a>
-			<a href="<?php echo esc_url( 'admin.php?page=' . $base_page_slug . '&tab=settings' ); ?>" class="item <?php echo ( $current_tab == 'settings' || $current_tab == '' ) ? 'active' : ''; ?>"><i class="file alternate outline icon"></i> <?php esc_html_e( 'Settings', 'mainwp-fluentsupport' ); ?></a>
+			<a href="<?php echo esc_url( 'admin.php?page=' . $base_page_slug . '&tab=overview' ); ?>" class="item <?php echo ( $current_tab == 'overview' ) ? 'active' : ''; ?>"><i class="tasks icon"></i> <?php esc_html_e( 'Tickets Overview', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?></a>
+			<a href="<?php echo esc_url( 'admin.php?page=' . $base_page_slug . '&tab=settings' ); ?>" class="item <?php echo ( $current_tab == 'settings' || $current_tab == '' ) ? 'active' : ''; ?>"><i class="file alternate outline icon"></i> <?php esc_html_e( 'Settings', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?></a>
 		</div>
 
         <div id="mainwp-fluentsupport-extension" class="wrap">
