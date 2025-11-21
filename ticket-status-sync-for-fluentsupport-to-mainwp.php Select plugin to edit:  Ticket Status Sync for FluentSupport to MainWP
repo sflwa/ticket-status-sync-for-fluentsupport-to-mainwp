@@ -227,7 +227,7 @@ class MainWP_FluentSupport_Extension_Activator {
             
             wp_enqueue_script( 
                 $plugin_slug . '-js', 
-                plugin_dir_url( __FILE__ ) . 'js/mainwp-fluentsupport.js', 
+                plugin_dir_url( __FILE__ ) . 'js/ticket-status-sync-for-fluentsupport-to-mainwp.js', 
                 array( 'jquery' ), 
                 $this->software_version, 
                 true 
@@ -235,7 +235,7 @@ class MainWP_FluentSupport_Extension_Activator {
 			
 			  wp_enqueue_style( 
                 $plugin_slug,
-                plugin_dir_url( __FILE__ ) . 'css/mainwp-fluentsupport.css', 
+                plugin_dir_url( __FILE__ ) . 'css/ticket-status-sync-for-fluentsupport-to-mainwp.css', 
                 array(), 
                 $this->software_version, 
                 true 
