@@ -1,6 +1,6 @@
 === Ticket Status Sync for FluentSupport to MainWP ===
 Plugin Name: Ticket Status Sync for FluentSupport to MainWP
-Plugin URI: https://github.com/sflwa/fs-mainwp
+Plugin URI: https://github.com/sflwa/ticket-status-sync-for-fluentsupport-to-mainwp
 Description: Integrates FluentSupport ticket data from a single "Support Site" into the MainWP Dashboard.
 Version: 1.2.1
 Author: South Florida Web Advisors
