@@ -1,7 +1,7 @@
 <?php
 /**
- * Plugin Name: MainWP FluentSupport Extension
- * Plugin URI:  https://github.com/sflwa/fs-mainwp
+ * Plugin Name: Ticket Status Sync for FluentSupport to MainWP
+ * Plugin URI:  https://github.com/sflwa/ticket-status-sync-for-fluentsupport-to-mainwp
  * Description: Integrates FluentSupport ticket data from a single "Support Site" into the MainWP Dashboard.
  * Version:     1.2.1
  * Author:      South Florida Web Advisors
@@ -10,7 +10,7 @@
  * Requires at least: 6.7
  * Tested up to: 6.8
  * Stable tag: 1.2.1
- * Text Domain: mainwp-fluentsupport
+ * Text Domain: ticket-status-sync-for-fluentsupport-to-mainwp
  * MainWP compatible: 4.5
  */
 
@@ -38,7 +38,7 @@ class MainWP_FluentSupport_Extension_Activator {
 	protected $childEnabled        = false;
 	protected $childKey            = false;
 	protected $childFile;
-	protected $plugin_handle    = 'mainwp-fluentsupport';
+	protected $plugin_handle    = 'ticket-status-sync-for-fluentsupport-to-mainwp';
 	protected $product_id       = 'MainWP FluentSupport Extension';
 	protected $software_version = '1.2.1'; // Version incremented
 
@@ -78,7 +78,8 @@ class MainWP_FluentSupport_Extension_Activator {
 			return;
 		}
 		$class_name = str_replace( '_', '-', strtolower( $class_name ) );
-		$class_file = WP_PLUGIN_DIR . DIRECTORY_SEPARATOR . str_replace( basename( __FILE__ ), '', plugin_basename( __FILE__ ) ) . 'class' . DIRECTORY_SEPARATOR . 'class-' . $class_name . '.php';
+		// FIX: Use the defined constant MAINWP_FLUENTSUPPORT_PLUGIN_DIR for a reliable path.
+		$class_file = MAINWP_FLUENTSUPPORT_PLUGIN_DIR . 'class' . DIRECTORY_SEPARATOR . 'class-' . $class_name . '.php';
 		
 		if ( file_exists( $class_file ) ) {
 			require_once $class_file;
@@ -102,7 +103,7 @@ class MainWP_FluentSupport_Extension_Activator {
 
 	public function activate_this_plugin() {
         // Ensures MainWP classes are initialized
-		if ( function_exists( 'mainwp_current_user_can' ) && ! mainwp_current_user_can( 'extension', 'mainwp-fluentsupport' ) ) {
+		if ( function_exists( 'mainwp_current_user_can' ) && ! mainwp_current_user_can( 'extension', 'ticket-status-sync-for-fluentsupport-to-mainwp' ) ) {
 			return;
 		}
         
@@ -126,7 +127,7 @@ class MainWP_FluentSupport_Extension_Activator {
     public function add_five_minute_cron_interval( $schedules ) {
         $schedules['five_minutes'] = array(
             'interval' => 5 * 60, // 5 minutes in seconds
-            'display'  => esc_html__( 'Every Five Minutes', 'mainwp-fluentsupport' ),
+            'display'  => esc_html__( 'Every Five Minutes', 'ticket-status-sync-for-fluentsupport-to-mainwp' ),
         );
         return $schedules;
     }
@@ -208,7 +209,7 @@ class MainWP_FluentSupport_Extension_Activator {
 			'id'            => 'fluentsupport-tickets-widget',
 			'plugin'        => $this->childFile,
 			'key'           => $this->childFile, // Use childFile as the key workaround for self-developed extensions
-			'metabox_title' => __( 'FluentSupport Tickets', 'mainwp-fluentsupport' ),
+			'metabox_title' => __( 'FluentSupport Tickets', 'ticket-status-sync-for-fluentsupport-to-mainwp' ),
 			'callback'      => array( MainWP_FluentSupport_Widget::get_instance(), 'render_metabox' ),
 		);
 
@@ -217,9 +218,9 @@ class MainWP_FluentSupport_Extension_Activator {
 
     // Enqueue scripts
     public function enqueue_scripts( $hook ) {
-        $plugin_slug = 'mainwp-fluentsupport';
+        $plugin_slug = 'ticket-status-sync-for-fluentsupport-to-mainwp';
         // Enqueue the JS if on the main dashboard page OR the extension page
-        $is_extension_page = strpos( $hook, 'Extensions-Fs-Mainwp-Main' ) !== false || strpos( $hook, 'mainwp-fluentsupport' ) !== false;
+        $is_extension_page = strpos( $hook, 'Extensions-Fs-Mainwp-Main' ) !== false || strpos( $hook, $plugin_slug ) !== false;
         $is_mainwp_dashboard = $hook === 'toplevel_page_mainwp_tab'; // The main Dashboard overview hook
         
         if ( $is_extension_page || $is_mainwp_dashboard ) {
@@ -240,9 +241,9 @@ class MainWP_FluentSupport_Extension_Activator {
                 true 
             );
             
-            wp_localize_script( $plugin_slug . '-js', 'mainwpFluentSupport', array(
+            wp_localize_script( $plugin_slug . '-js', 'ticketStatusSync', array(
                 'ajaxurl' => admin_url( 'admin-ajax.php' ),
-                'nonce'   => wp_create_nonce( 'mainwp-fluentsupport-nonce' ),
+                'nonce'   => wp_create_nonce( 'ticket-status-sync-for-fluentsupport-to-mainwp-nonce' ),
                 'action'  => 'mainwp_fluentsupport_fetch_tickets'
             ) );
 
