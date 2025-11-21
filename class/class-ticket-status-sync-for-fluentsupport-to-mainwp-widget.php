@@ -58,8 +58,8 @@ class MainWP_FluentSupport_Widget {
                 <div class="ui grid">
                     <div class="twelve wide column">
                         <h2 class="ui header handle-drag">
-                            <?php esc_html_e( 'FluentSupport Tickets Summary', 'mainwp-fluentsupport' ); ?>
-                            <div class="sub header"><?php esc_html_e( 'Configuration Required', 'mainwp-fluentsupport' ); ?></div>
+                            <?php esc_html_e( 'FluentSupport Tickets Summary', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?>
+                            <div class="sub header"><?php esc_html_e( 'Configuration Required', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?></div>
                         </h2>
                     </div>
                 </div>
@@ -68,14 +68,14 @@ class MainWP_FluentSupport_Widget {
             <div class="ui fluid message red">
                 <div class="ui icon header">
                     <i class="exclamation triangle icon"></i>
-                    <?php esc_html_e( 'Support Site URL is missing. Please configure your Support Site settings in the Settings tab to enable the sync feature and link the View All Tickets button.', 'mainwp-fluentsupport' ); ?>
+                    <?php esc_html_e( 'Support Site URL is missing. Please configure your Support Site settings in the Settings tab to enable the sync feature and link the View All Tickets button.', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?>
                 </div>
             </div>
             <?php // REMOVED: <div class="ui hidden divider"></div> ?>
             <div class="ui divider" style="margin-left:-1em;margin-right:-1em;"></div>
             <div class="ui two columns grid">
                 <div class="left aligned column">
-                    <a href="admin.php?page=Extensions-Mainwp-FluentSupport&tab=settings" class="ui basic red button"><?php esc_html_e( 'Go to Settings', 'mainwp-fluentsupport' ); ?></a>
+                    <a href="admin.php?page=Extensions-Mainwp-FluentSupport&tab=settings" class="ui basic red button"><?php esc_html_e( 'Go to Settings', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?></a>
                 </div>
             </div>
             <?php
@@ -111,7 +111,7 @@ class MainWP_FluentSupport_Widget {
         if ( $last_sync_timestamp > 0 ) {
             $time_ago = human_time_diff( $last_sync_timestamp, current_time( 'timestamp' ) );
             // translators: %s: Time ago (e.g., 5 minutes).
-            $last_sync_display = '(' . sprintf( esc_html__( 'Last Synced: %s ago', 'mainwp-fluentsupport' ), $time_ago ) . ')';
+            $last_sync_display = '(' . sprintf( esc_html__( 'Last Synced: %s ago', 'ticket-status-sync-for-fluentsupport-to-mainwp' ), $time_ago ) . ')';
         }
 
         // 4. Determine the header title based on context
@@ -120,15 +120,15 @@ class MainWP_FluentSupport_Widget {
             $site_info = MainWP_FluentSupport_Utility::get_websites( $current_site_id );
             $site_name = ! empty( $site_info ) ? $site_info[0]['name'] : 'Current Site';
             // translators: %s: The name of the client site.
-            $title = sprintf( esc_html__( 'Tickets for %s', 'mainwp-fluentsupport' ), esc_html( $site_name ) );
+            $title = sprintf( esc_html__( 'Tickets for %s', 'ticket-status-sync-for-fluentsupport-to-mainwp' ), esc_html( $site_name ) );
             
             // translators: 1: Number of active tickets displayed, 2: Total number of active tickets.
-            $subtitle_text = sprintf( esc_html__( 'Displaying %1$d active tickets (total active: %2$d).', 'mainwp-fluentsupport' ), count( $tickets ), $all_active_count ); // Line 121 (Screenshot 6.07.47.png: ERROR: Missing Translators Comment)
+            $subtitle_text = sprintf( esc_html__( 'Displaying %1$d active tickets (total active: %2$d).', 'ticket-status-sync-for-fluentsupport-to-mainwp' ), count( $tickets ), $all_active_count ); // Line 121 (Screenshot 6.07.47.png: ERROR: Missing Translators Comment)
             $subtitle = $subtitle_text . wp_kses( $last_sync_display, $allowed_html );
         } else {
             // translators: 1: Number of active tickets displayed, 2: Total number of active tickets across all sites.
-            $subtitle_text = sprintf( esc_html__( 'Displaying %1$d active tickets across all sites (total active: %2$d).', 'mainwp-fluentsupport' ), count( $tickets ), $all_active_count ); // Line 127 (Screenshot 6.07.47.png: ERROR: Missing Translators Comment)
-            $title = esc_html__( 'FluentSupport Tickets Summary', 'mainwp-fluentsupport' );
+            $subtitle_text = sprintf( esc_html__( 'Displaying %1$d active tickets across all sites (total active: %2$d).', 'ticket-status-sync-for-fluentsupport-to-mainwp' ), count( $tickets ), $all_active_count ); // Line 127 (Screenshot 6.07.47.png: ERROR: Missing Translators Comment)
+            $title = esc_html__( 'FluentSupport Tickets Summary', 'ticket-status-sync-for-fluentsupport-to-mainwp' );
             $subtitle = $subtitle_text .'   '.  wp_kses( $last_sync_display, $allowed_html );
         }
 
@@ -145,7 +145,7 @@ class MainWP_FluentSupport_Widget {
                     <?php 
                     // Add the Sync Button to the header
                     // This button uses the AJAX function already set up in mainwp-fluentsupport.js to trigger a sync.
-                    $button_text = esc_html__( 'Sync Now', 'mainwp-fluentsupport' );
+                    $button_text = esc_html__( 'Sync Now', 'ticket-status-sync-for-fluentsupport-to-mainwp' );
                     ?>
                     <button id="mainwp-fluentsupport-fetch-btn" class="ui button mini green" style="margin-top: 5px;">
                         <i class="sync alternate icon"></i>
@@ -159,7 +159,7 @@ class MainWP_FluentSupport_Widget {
             <div class="ui fluid placeholder">
                 <div class="ui icon header">
                     <i class="check circle outline icon"></i>
-                    <?php esc_html_e( 'No new or active tickets found in local cache for this view. Click "Sync Now" above or "Fetch Latest Tickets" on the extension page to sync.', 'mainwp-fluentsupport' ); ?>
+                    <?php esc_html_e( 'No new or active tickets found in local cache for this view. Click "Sync Now" above or "Fetch Latest Tickets" on the extension page to sync.', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?>
                 </div>
             </div>
         <?php else : ?>
@@ -167,14 +167,14 @@ class MainWP_FluentSupport_Widget {
                 <thead>
                     <tr>
                         <?php if ( $current_site_id === 0 ) : // Only show the Client Site column on the main dashboard ?>
-                            <th width="30%"><?php esc_html_e( 'Client Site', 'mainwp-fluentsupport' ); ?></th>
-                            <th width="45%"><?php esc_html_e( 'Ticket Title', 'mainwp-fluentsupport' ); ?></th>
-                            <th width="15%"><?php esc_html_e( 'Status', 'mainwp-fluentsupport' ); ?></th>
-                            <th width="10%"><?php esc_html_e( 'Updated', 'mainwp-fluentsupport' ); ?></th>
+                            <th width="30%"><?php esc_html_e( 'Client Site', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?></th>
+                            <th width="45%"><?php esc_html_e( 'Ticket Title', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?></th>
+                            <th width="15%"><?php esc_html_e( 'Status', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?></th>
+                            <th width="10%"><?php esc_html_e( 'Updated', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?></th>
                         <?php else : // On single site dashboard, hide the Client Site column ?>
-                            <th width="60%"><?php esc_html_e( 'Ticket Title', 'mainwp-fluentsupport' ); ?></th>
-                            <th width="20%"><?php esc_html_e( 'Status', 'mainwp-fluentsupport' ); ?></th>
-                            <th width="20%"><?php esc_html_e( 'Updated', 'mainwp-fluentsupport' ); ?></th>
+                            <th width="60%"><?php esc_html_e( 'Ticket Title', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?></th>
+                            <th width="20%"><?php esc_html_e( 'Status', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?></th>
+                            <th width="20%"><?php esc_html_e( 'Updated', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?></th>
                         <?php endif; ?>
                     </tr>
                 </thead>
@@ -206,7 +206,7 @@ class MainWP_FluentSupport_Widget {
 		<div class="ui divider" style="margin-left:-1em;margin-right:-1em;"></div>
 		<div class="ui two columns grid">
 			<div class="left aligned column">
-				<a href="<?php echo esc_url( $support_site_tickets_url ); ?>" class="ui basic green button" target="_blank"><?php esc_html_e( 'View All Tickets', 'mainwp-fluentsupport' ); ?></a>
+				<a href="<?php echo esc_url( $support_site_tickets_url ); ?>" class="ui basic green button" target="_blank"><?php esc_html_e( 'View All Tickets', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?></a>
 			</div>
 		</div>
 		<?php
