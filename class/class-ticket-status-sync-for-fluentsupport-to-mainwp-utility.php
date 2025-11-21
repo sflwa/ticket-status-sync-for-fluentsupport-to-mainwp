@@ -445,4 +445,3 @@ class MainWP_FluentSupport_Utility {
     }
 }
 
-}
