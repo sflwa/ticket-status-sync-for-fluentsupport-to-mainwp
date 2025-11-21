@@ -13,7 +13,7 @@ jQuery(document).ready(function ($) {
     var getFormData = function(action) {
         return {
             action: action,
-            security: mainwpFluentSupport.nonce,
+            security: ticketStatusSync.nonce, // FIX: Updated localized object name from mainwpFluentSupport to ticketStatusSync
             fluentsupport_site_url: $('#fluentsupport_site_url').val(), 
             fluentsupport_api_username: $('#fluentsupport_api_username').val(),
             fluentsupport_api_password: $('#fluentsupport_api_password').val()
@@ -25,16 +25,13 @@ jQuery(document).ready(function ($) {
     // -------------------------
     $fetchButton.on('click', function (e) {
         e.preventDefault();
-
         // 1. Initial UI Lock and Message Display
         $fetchButton.prop('disabled', true).text('Fetching Tickets...');
         $messageDiv.hide().removeClass().empty();
-
         // Show immediate loading indicator
         $ticketDataBody.html('<tr class="loading-row"><td colspan="5"><i class="fa fa-spinner fa-pulse"></i> Contacting Support Site for tickets...</td></tr>');
-        
         $.ajax({
-            url: mainwpFluentSupport.ajaxurl,
+            url: ticketStatusSync.ajaxurl, // FIX: Updated localized object name
             type: 'POST',
             data: getFormData(fetchAction), // Use helper function to get data
             timeout: 60000, // CRITICAL FIX: Increased client-side timeout to 60 seconds
@@ -60,7 +57,6 @@ jQuery(document).ready(function ($) {
             error: function (jqXHR, textStatus, errorThrown) {
                 // Network/Timeout Error 
                 $ticketDataBody.html('<tr><td colspan="5">Network Error: Request timed out or was blocked. Status: ' + textStatus + '</td></tr>');
-
                 $messageDiv
                     .addClass('mainwp-notice mainwp-notice-red')
                     .html('<strong>Fatal Network Error:</strong> Could not reach the server. Check Dashboard health.')
@@ -83,7 +79,7 @@ jQuery(document).ready(function ($) {
         $messageDiv.hide().removeClass().empty();
 
         $.ajax({
-            url: mainwpFluentSupport.ajaxurl,
+            url: ticketStatusSync.ajaxurl, // FIX: Updated localized object name
             type: 'POST',
             data: getFormData(saveAction),
             success: function (response) {
@@ -104,7 +100,6 @@ jQuery(document).ready(function ($) {
             },
             error: function () {
                 $saveButton.prop('disabled', false).text('Save Settings');
-
                 $messageDiv
                     .addClass('mainwp-notice mainwp-notice-red')
                     .html('<strong>Fatal Error:</strong> Failed to connect to save settings.')
@@ -126,7 +121,7 @@ jQuery(document).ready(function ($) {
         $messageDiv.hide().removeClass().empty();
 
         $.ajax({
-            url: mainwpFluentSupport.ajaxurl,
+            url: ticketStatusSync.ajaxurl, // FIX: Updated localized object name
             type: 'POST',
             data: getFormData(testAction),
             timeout: 30000, // Use a shorter timeout for test, 30s
@@ -146,7 +141,6 @@ jQuery(document).ready(function ($) {
             },
             error: function () {
                 $testButton.prop('disabled', false).text('Test API Connection');
-
                 $messageDiv
                     .addClass('mainwp-notice mainwp-notice-red')
                     .html('<strong>Fatal Error:</strong> Network connection failed during test.')
