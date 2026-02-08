@@ -39,7 +39,7 @@ require_once MAINWP_FLUENTSUPPORT_PLUGIN_DIR . 'sflwa-notice-handler.php';
 class MainWP_FluentSupport_Extension_Activator {
 
 	protected $plugin_handle    = 'ticket-status-sync-for-fluentsupport-to-mainwp';
-	protected $software_version = '1.2.6';
+	protected $software_version = '1.2.3';
 
 	/**
 	 * MainWP_FluentSupport_Extension_Activator constructor.
