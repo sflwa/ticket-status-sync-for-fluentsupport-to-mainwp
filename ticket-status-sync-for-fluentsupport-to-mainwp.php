@@ -3,24 +3,19 @@
  * Plugin Name: Ticket Status Sync for FluentSupport to MainWP
  * Plugin URI:  https://github.com/sflwa/ticket-status-sync-for-fluentsupport-to-mainwp
  * Description: Integrates FluentSupport ticket data from a single "Support Site" into the MainWP Dashboard.
- * Version:     1.2.2
+ * Version:     1.2.3
  * Author:      South Florida Web Advisors
  * Author URI:  https://sflwa.net
  * License: GPLv2 or later
  * Requires at least: 6.7
  * Tested up to: 6.9
- * Stable tag: 1.2.1
+ * Stable tag: 1.2.3
  * Text Domain: ticket-status-sync-for-fluentsupport-to-mainwp
- * MainWP compatible: 4.5
+ * MainWP compatible: 4.5, 6.0-er.12
  */
 
-
-
-
-
-
-// Use the required namespace structure for all custom classes
 namespace MainWP\Extensions\FluentSupport;
+
 if ( ! defined( 'MAINWP_FLUENTSUPPORT_PLUGIN_FILE' ) ) {
 	define( 'MAINWP_FLUENTSUPPORT_PLUGIN_FILE', __FILE__ );
 }
@@ -33,67 +28,67 @@ if ( ! defined( 'MAINWP_FLUENTSUPPORT_PLUGIN_URL' ) ) {
 	define( 'MAINWP_FLUENTSUPPORT_PLUGIN_URL', plugin_dir_url( MAINWP_FLUENTSUPPORT_PLUGIN_FILE ) );
 }
 
+// Notice of Use Handler.
+require_once MAINWP_FLUENTSUPPORT_PLUGIN_DIR . 'sflwa-notice-handler.php';
 
-// Notice of Use 
-require_once( plugin_dir_path( __FILE__ ) . 'sflwa-notice-handler.php' ); 
-
-
-
-
-
-
-// -------------------------------------------------------------
-// The Main Activator Class (Required by MainWP Framework)
-// -------------------------------------------------------------
+/**
+ * Class MainWP_FluentSupport_Extension_Activator
+ *
+ * The Main Activator Class (Required by MainWP Framework).
+ */
 class MainWP_FluentSupport_Extension_Activator {
 
-	protected $mainwpMainActivated = false;
-	protected $childEnabled        = false;
-	protected $childKey            = false;
-	protected $childFile;
 	protected $plugin_handle    = 'ticket-status-sync-for-fluentsupport-to-mainwp';
-	protected $product_id       = 'MainWP FluentSupport Extension';
-	protected $software_version = '1.2.1'; // Version incremented
+	protected $software_version = '1.2.6';
 
+	/**
+	 * MainWP_FluentSupport_Extension_Activator constructor.
+	 */
 	public function __construct() {
-		$this->childFile = __FILE__;
-		// Critical for MainWP Autoloading of class files in the /class/ directory
+		// Register Autoloader.
 		spl_autoload_register( array( $this, 'autoload' ) );
+		
 		register_activation_hook( __FILE__, array( $this, 'activate' ) );
 		register_deactivation_hook( __FILE__, array( $this, 'deactivate' ) );
-		// Hook to register the extension with MainWP's extension manager
+		
+		// Hook to register the extension with MainWP.
 		add_filter( 'mainwp_getextensions', array( &$this, 'get_this_extension' ) );
-		// Check if MainWP is active, then initialize the extension
-		$this->mainwpMainActivated = apply_filters( 'mainwp_activated_check', false );
-		if ( $this->mainwpMainActivated !== false ) {
+		
+		// Initialize the extension components.
+		if ( apply_filters( 'mainwp_activated_check', false ) !== false ) {
 			$this->activate_this_plugin();
 		} else {
 			add_action( 'mainwp_activated', array( &$this, 'activate_this_plugin' ) );
 		}
 
-		add_action( 'admin_notices', array( &$this, 'admin_notices' ) );
-        add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
+		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
+
+		/**
+		 * Ensure Admin Class is initialized during AJAX requests to register handlers.
+		 */
+		if ( wp_doing_ajax() ) {
+			$action = isset( $_POST['action'] ) ? sanitize_text_field( wp_unslash( $_POST['action'] ) ) : '';
+			if ( strpos( $action, 'mainwp_fluentsupport_' ) === 0 ) {
+				MainWP_FluentSupport_Admin::get_instance();
+			}
+		}
 	}
     
-    // Autoload function, loads classes/class-mainwp-fluentsupport-XXXX.php
+	/**
+	 * Autoloader for FluentSupport Extension classes.
+	 *
+	 * @param string $class_name The name of the class to load.
+	 */
 	public function autoload( $class_name ) {
-		if ( 0 === strpos( $class_name, 'MainWP\Extensions\FluentSupport' ) ) {
-			$class_name = str_replace( 'MainWP\Extensions\FluentSupport\\', '', $class_name );
-		} else {
+		if ( strpos( $class_name, __NAMESPACE__ ) !== 0 ) {
 			return;
 		}
 
-		if ( 0 !== strpos( $class_name, 'MainWP_FluentSupport' ) ) {
-			return;
-		}
+		$relative_class = str_replace( __NAMESPACE__ . '\\', '', $class_name );
+		$file_prefix    = 'ticket-status-sync-for-fluentsupport-to-mainwp';
+		$suffix         = str_replace( 'MainWP_FluentSupport', '', $relative_class ); 
+		$file_suffix    = str_replace( '_', '-', strtolower( $suffix ) );
         
-        // CRITICAL FIX: Map the short class name (e.g., MainWP_FluentSupport_Admin) 
-        // to the long file name (e.g., class-ticket-status-sync-for-fluentsupport-to-mainwp-admin.php).
-        $file_prefix = 'ticket-status-sync-for-fluentsupport-to-mainwp';
-        $suffix = str_replace( 'MainWP_FluentSupport', '', $class_name ); 
-        $file_suffix = str_replace( '_', '-', strtolower( $suffix ) );
-        
-		// FIX: Use the defined constant MAINWP_FLUENTSUPPORT_PLUGIN_DIR for a reliable path.
 		$class_file = MAINWP_FLUENTSUPPORT_PLUGIN_DIR . 'class' . DIRECTORY_SEPARATOR . 'class-' . $file_prefix . $file_suffix . '.php';
         
 		if ( file_exists( $class_file ) ) {
@@ -101,172 +96,134 @@ class MainWP_FluentSupport_Extension_Activator {
 		}
 	}
     
-    // Defines the extension for MainWP's extension manager
+	/**
+	 * Registers the extension with the MainWP Extension Manager.
+	 */
 	public function get_this_extension( $pArray ) {
 		$pArray[] = array(
 			'plugin'     => __FILE__,
 			'api'        => $this->plugin_handle,
 			'mainwp'     => true,
-            // Uses the Overview class to render the page content
 			'callback'   => array( MainWP_FluentSupport_Overview::get_instance(), 'render_tabs' ), 
-			'apiManager' => false, // Disables license checking for self-developed extension
-           
-			'cap'        => 'manage_options', // Ensures Admins have access
-            'menu_title' => 'FluentSupport Tickets',
+			'apiManager' => false,
+			'cap'        => 'manage_options',
+			'menu_title' => 'FluentSupport Tickets',
 		);
 		return $pArray;
 	}
 
+	/**
+	 * Core initialization of the extension components.
+	 */
 	public function activate_this_plugin() {
-        // Ensures MainWP classes are initialized
-		if ( function_exists( 'mainwp_current_user_can' ) && ! mainwp_current_user_can( 'extension', 'ticket-status-sync-for-fluentsupport-to-mainwp' ) ) {
+		if ( function_exists( 'mainwp_current_user_can' ) && ! mainwp_current_user_can( 'extension', $this->plugin_handle ) ) {
 			return;
 		}
         
-        // NEW: Add metabox filter to register the widget
-        add_filter( 'mainwp_getmetaboxes', array( &$this, 'hook_get_metaboxes' ) );
-		// **REMOVED: Hook to trigger sync after MainWP site synchronization (to prevent slowdown)**
+		add_filter( 'mainwp_getmetaboxes', array( &$this, 'hook_get_metaboxes' ) );
         
-        // **NEW: Add WP-Cron hooks for background synchronization**
-        add_filter( 'cron_schedules', array( $this, 'add_five_minute_cron_interval' ) );
+		add_filter( 'cron_schedules', array( $this, 'add_cron_intervals' ) );
 		add_action( 'mainwp_fluentsupport_sync_tickets_cron', array( $this, 'mainwp_fluentsupport_sync_tickets_cron' ) );
 
-        // Initialize core components
+		// Initialize controllers.
 		MainWP_FluentSupport_Admin::get_instance();
-        MainWP_FluentSupport_Overview::get_instance();
+		MainWP_FluentSupport_Overview::get_instance();
 	}
 
-    /**
-     * Adds a 5-minute interval to the cron schedules.
+	/**
+	 * Adds custom cron schedules.
 	 */
-    public function add_five_minute_cron_interval( $schedules ) {
-        $schedules['five_minutes'] = array(
-            'interval' => 5 * 60, // 5 minutes in seconds
-            'display'  => esc_html__( 'Every Five Minutes', 'ticket-status-sync-for-fluentsupport-to-mainwp' ),
-        );
-		return $schedules;
-    }
-    
-    /**
-     * The scheduled cron event handler.
-	 * Triggers the ticket synchronization.
-     */
-    public function mainwp_fluentsupport_sync_tickets_cron() {
-        // Ensure credentials are set before attempting to sync
-        $support_site_url = rtrim( get_option( 'mainwp_fluentsupport_site_url', '', false ), '/' );
-		$api_username     = get_option( 'mainwp_fluentsupport_api_username', '', false );
-		$api_password     = get_option( 'mainwp_fluentsupport_api_password', '', false );
-		if ( ! empty( $support_site_url ) && ! empty( $api_username ) && ! empty( $api_password ) ) {
-             // Perform the heavy sync lifting
-             MainWP_FluentSupport_Utility::api_sync_tickets( 
-                $support_site_url, 
-                $api_username, 
-                $api_password 
-             );
-		}
-    }
-    
-    // **REMOVED: hook_mainwp_site_synced() method is no longer needed.**
-    
-	public function admin_notices() {
-        // ... (standard admin notices logic)
-	}
-
-	public function activate() {
-        // Calls the MainWP activation hook
-		$options = array(
-			'product_id'       => $this->product_id,
-			'software_version' => $this->software_version,
+	public function add_cron_intervals( $schedules ) {
+		$schedules['five_minutes'] = array(
+			'interval' => 5 * 60,
+			'display'  => esc_html__( 'Every Five Minutes', 'ticket-status-sync-for-fluentsupport-to-mainwp' ),
 		);
-		do_action( 'mainwp_activate_extention', $this->plugin_handle, $options );
+		return $schedules;
+	}
+    
+	/**
+	 * Background sync handler triggered by WP-Cron.
+	 */
+	public function mainwp_fluentsupport_sync_tickets_cron() {
+		$url  = get_option( 'mainwp_fluentsupport_site_url', '' );
+		$user = get_option( 'mainwp_fluentsupport_api_username', '' );
+		$pass = get_option( 'mainwp_fluentsupport_api_password', '' );
+
+		if ( ! empty( $url ) && ! empty( $user ) && ! empty( $pass ) ) {
+			MainWP_FluentSupport_Utility::api_sync_tickets( $url, $user, $pass );
+		}
+	}
+    
+	/**
+	 * Activation hook for the plugin.
+	 */
+	public function activate() {
+		do_action( 'mainwp_activate_extention', $this->plugin_handle, array( 'software_version' => $this->software_version ) );
         
-        // CRON: Schedule the recurring event on activation
-        if ( ! wp_next_scheduled( 'mainwp_fluentsupport_sync_tickets_cron' ) ) {
-            // Schedule the event to run every 5 minutes
-            wp_schedule_event( time(), 'five_minutes', 'mainwp_fluentsupport_sync_tickets_cron' );
+		if ( ! wp_next_scheduled( 'mainwp_fluentsupport_sync_tickets_cron' ) ) {
+			wp_schedule_event( time(), 'five_minutes', 'mainwp_fluentsupport_sync_tickets_cron' );
 		}
 	}
 
+	/**
+	 * Deactivation hook for the plugin.
+	 */
 	public function deactivate() {
-        // Calls the MainWP deactivation hook
 		do_action( 'mainwp_deactivate_extention', $this->plugin_handle );
-		// CRON: Clear the scheduled event on deactivation
-        $timestamp = wp_next_scheduled( 'mainwp_fluentsupport_sync_tickets_cron' );
+		$timestamp = wp_next_scheduled( 'mainwp_fluentsupport_sync_tickets_cron' );
 		if ( $timestamp ) {
-            wp_unschedule_event( $timestamp, 'mainwp_fluentsupport_sync_tickets_cron' );
+			wp_unschedule_event( $timestamp, 'mainwp_fluentsupport_sync_tickets_cron' );
 		}
 	}
-    
-    // Utility getter methods needed by other classes
-	public function get_child_key() {
-		return $this->childKey;
-	}
 
-	public function get_child_file() {
-		return $this->childFile;
-	}
-    
-    /**
-	 * Adds metabox (widget) on the MainWP Dashboard overview page via the 'mainwp_getmetaboxes' filter.
-	 *
-	 * @param array $metaboxes Array containing metaboxes data.
-	 *
-	 * @return array $metaboxes Updated array that contains metaboxes data.
+	/**
+	 * Registers the Dashboard widget with MainWP.
 	 */
 	public function hook_get_metaboxes( $metaboxes ) {
-        
-		if ( ! is_array( $metaboxes ) ) {
-			$metaboxes = array();
-		}
-
 		$metaboxes[] = array(
 			'id'            => 'fluentsupport-tickets-widget',
-			'plugin'        => $this->childFile,
-			'key'           => $this->childFile, // Use childFile as the key workaround for self-developed extension
+			'plugin'        => __FILE__,
+			'key'           => __FILE__,
 			'metabox_title' => __( 'FluentSupport Tickets', 'ticket-status-sync-for-fluentsupport-to-mainwp' ),
 			'callback'      => array( MainWP_FluentSupport_Widget::get_instance(), 'render_metabox' ),
 		);
 		return $metaboxes;
 	}
 
-    // Enqueue scripts
-    public function enqueue_scripts( $hook ) {
-        $plugin_slug = 'ticket-status-sync-for-fluentsupport-to-mainwp';
-		// Enqueue the JS if on the main dashboard page OR the extension page
-        $is_extension_page = strpos( $hook, $plugin_slug ) !== false;
-        $is_mainwp_dashboard = $hook === 'toplevel_page_mainwp_tab';
-		// The main Dashboard overview hook
+	/**
+	 * Enqueue frontend assets and localize parameters.
+	 */
+	public function enqueue_scripts( $hook ) {
+		$plugin_slug = 'ticket-status-sync-for-fluentsupport-to-mainwp';
+		$is_extension_page = strpos( $hook, $plugin_slug ) !== false;
+		$is_mainwp_dashboard = ( 'toplevel_page_mainwp_tab' === $hook );
         
-        if ( $is_extension_page || $is_mainwp_dashboard ) {
-            
-            wp_enqueue_script( 
-                $plugin_slug . '-js', 
-                plugin_dir_url( __FILE__ ) . 'js/ticket-status-sync-for-fluentsupport-to-mainwp.js', 
-        
+		if ( $is_extension_page || $is_mainwp_dashboard ) {
+			wp_enqueue_script( 
+				$plugin_slug . '-js', 
+				plugin_dir_url( __FILE__ ) . 'js/ticket-status-sync-for-fluentsupport-to-mainwp.js', 
 				array( 'jquery' ), 
-                $this->software_version, 
-                true 
-            );
+				$this->software_version, 
+				true 
+			);
+			
 			wp_enqueue_style( 
-                $plugin_slug,
-                plugin_dir_url( __FILE__ ) . 'css/ticket-status-sync-for-fluentsupport-to-mainwp.css', 
-                array(), 
-                $this->software_version, 
-                true 
-           
+				$plugin_slug,
+				plugin_dir_url( __FILE__ ) . 'css/ticket-status-sync-for-fluentsupport-to-mainwp.css', 
+				array(), 
+				$this->software_version 
 			);
             
-            wp_localize_script( $plugin_slug . '-js', 'ticketStatusSync', array(
-                'ajaxurl' => admin_url( 'admin-ajax.php' ),
-                'nonce'   => wp_create_nonce( 'ticket-status-sync-for-fluentsupport-to-mainwp-nonce' ),
-                'action'  => 'mainwp_fluentsupport_fetch_tickets'
-            ) );
-		// CORRECTED: Using 'mainwp-css' handle now.
-            wp_add_inline_style( 'mainwp-css', '#mainwp-fluentsupport-extension {margin:20px;} #fluentsupport-ticket-data .loading-row { background: #f9f9f9; } #fluentsupport-ticket-data .error-row { background: #fee; color: red; }' );
+			wp_localize_script( $plugin_slug . '-js', 'ticketStatusSync', array(
+				'ajaxurl'  => admin_url( 'admin-ajax.php' ),
+				'security' => wp_create_nonce( 'ticket-status-sync-for-fluentsupport-to-mainwp-nonce' ),
+			) );
+
+			wp_add_inline_style( 'mainwp-css', '#mainwp-fluentsupport-extension {margin:20px;} #fluentsupport-ticket-data .loading-row { background: #f9f9f9; } #fluentsupport-ticket-data .error-row { background: #fee; color: red; }' );
 		}
-    }
+	}
 }
 
-// Global instantiation, required by MainWP framework
+// Instantiate.
 global $mainWPFluentSupportExtensionActivator;
 $mainWPFluentSupportExtensionActivator = new MainWP_FluentSupport_Extension_Activator();
