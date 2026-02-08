@@ -2,13 +2,13 @@
 Plugin Name: Ticket Status Sync for FluentSupport to MainWP
 Plugin URI: https://github.com/sflwa/fs-mainwp
 Description: Integrates FluentSupport ticket data from a single "Support Site" into the MainWP Dashboard.
-Version: 1.2.2
+Version: 1.2.3
 Author: South Florida Web Advisors
 Author URI: https://sflwa.net
 Requires at least: 6.7
 Requires PHP: 7.4
 Tested up to: 6.9
-Stable tag: 1.2.2
+Stable tag: 1.2.3
 License: GPLv2 or later
 
 Integrates FluentSupport ticket data from a single "Support Site" into the MainWP Dashboard.
@@ -46,6 +46,10 @@ This exact key (`cf_website_url`) is required by the extension to match ticket d
 4. Navigate to the extension's **Settings** tab on your MainWP dashboard and enter the URL and REST API Application Credentials for your Support Site.
 
 == Changelog ==
+
+= 1.2.3 =
+* Fixed AJAX Save issue and cleaned up JavaScript
+* Confirmed Support in MainWP 6.0 Early Release
 
 = 1.2.2 =
 * Version Bump for WordPress 6.9
