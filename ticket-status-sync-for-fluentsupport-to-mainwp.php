@@ -3,15 +3,11 @@
  * Plugin Name: Ticket Status Sync for FluentSupport to MainWP
  * Plugin URI:  https://github.com/sflwa/ticket-status-sync-for-fluentsupport-to-mainwp
  * Description: Integrates FluentSupport ticket data from a single "Support Site" into the MainWP Dashboard.
- * Version:     1.2.4
+ * Version:     1.2.6
  * Author:      South Florida Web Advisors
  * Author URI:  https://sflwa.net
  * License:     GPLv2 or later
- * Requires at least: 6.7
- * Tested up to: 6.9
- * Stable tag: 1.2.4
  * Text Domain: ticket-status-sync-for-fluentsupport-to-mainwp
- * MainWP compatible: 4.5, 6.0-er.12
  *
  * @package MainWP\Extensions\FluentSupport
  */
@@ -34,7 +30,6 @@ if ( ! defined( 'MAINWP_FLUENTSUPPORT_PLUGIN_URL' ) ) {
 	define( 'MAINWP_FLUENTSUPPORT_PLUGIN_URL', plugin_dir_url( MAINWP_FLUENTSUPPORT_PLUGIN_FILE ) );
 }
 
-// Notice of Use Handler.
 require_once MAINWP_FLUENTSUPPORT_PLUGIN_DIR . 'sflwa-notice-handler.php';
 
 /**
@@ -43,7 +38,7 @@ require_once MAINWP_FLUENTSUPPORT_PLUGIN_DIR . 'sflwa-notice-handler.php';
 class MainWP_FluentSupport_Extension_Activator {
 
 	protected $plugin_handle    = 'ticket-status-sync-for-fluentsupport-to-mainwp';
-	protected $software_version = '1.2.4';
+	protected $software_version = '1.2.5';
 
 	public function __construct() {
 		spl_autoload_register( array( $this, 'autoload' ) );
@@ -53,6 +48,12 @@ class MainWP_FluentSupport_Extension_Activator {
 		
 		add_filter( 'mainwp_getextensions', array( $this, 'get_this_extension' ) );
 		
+		add_filter( 'cron_schedules', array( $this, 'add_cron_intervals' ) );
+		add_action( 'mainwp_fluentsupport_sync_tickets_cron', array( $this, 'mainwp_fluentsupport_sync_tickets_cron' ) );
+
+		// NEW: Auto-refresh schedule on plugin update
+		add_action( 'admin_init', array( $this, 'check_version_and_refresh_cron' ) );
+
 		if ( apply_filters( 'mainwp_activated_check', false ) !== false ) {
 			$this->activate_this_plugin();
 		} else {
@@ -68,7 +69,18 @@ class MainWP_FluentSupport_Extension_Activator {
 			}
 		}
 	}
-    
+
+	/**
+	 * Ensures the cron is refreshed automatically when users update the plugin.
+	 */
+	public function check_version_and_refresh_cron() {
+		$db_version = get_option( 'mainwp_fluentsupport_version', '1.0.0' );
+		if ( version_compare( $db_version, $this->software_version, '<' ) ) {
+			$this->activate(); // Re-runs the cron scheduling logic
+			update_option( 'mainwp_fluentsupport_version', $this->software_version );
+		}
+	}
+
 	public function autoload( $class_name ) {
 		if ( strpos( $class_name, __NAMESPACE__ ) !== 0 ) {
 			return;
@@ -82,7 +94,7 @@ class MainWP_FluentSupport_Extension_Activator {
 			require_once $class_file;
 		}
 	}
-    
+
 	public function get_this_extension( $pArray ) {
 		$pArray[] = array(
 			'plugin'     => __FILE__,
@@ -101,8 +113,6 @@ class MainWP_FluentSupport_Extension_Activator {
 			return;
 		}
 		add_filter( 'mainwp_getmetaboxes', array( $this, 'hook_get_metaboxes' ) );
-		add_filter( 'cron_schedules', array( $this, 'add_cron_intervals' ) );
-		add_action( 'mainwp_fluentsupport_sync_tickets_cron', array( $this, 'mainwp_fluentsupport_sync_tickets_cron' ) );
 		MainWP_FluentSupport_Admin::get_instance();
 		MainWP_FluentSupport_Overview::get_instance();
 	}
@@ -114,29 +124,34 @@ class MainWP_FluentSupport_Extension_Activator {
 		);
 		return $schedules;
 	}
-    
+
 	public function mainwp_fluentsupport_sync_tickets_cron() {
 		$url  = get_option( 'mainwp_fluentsupport_site_url', '' );
 		$user = get_option( 'mainwp_fluentsupport_api_username', '' );
 		$pass = get_option( 'mainwp_fluentsupport_api_password', '' );
+
 		if ( ! empty( $url ) && ! empty( $user ) && ! empty( $pass ) ) {
-			MainWP_FluentSupport_Utility::api_sync_tickets( $url, $user, $pass );
+			$result = MainWP_FluentSupport_Utility::api_sync_tickets( $url, $user, $pass );
+			
+			// LOG THE STATUS FOR DEBUGGING
+			$status = $result['success'] ? 'Success: ' . $result['synced'] . ' tickets.' : 'Error: ' . $result['error'];
+			update_option( 'mainwp_fluentsupport_sync_log', current_time( 'mysql' ) . ' - ' . $status );
 		}
 	}
-    
+
 	public function activate() {
 		do_action( 'mainwp_activate_extention', $this->plugin_handle, array( 'software_version' => $this->software_version ) );
-		if ( ! wp_next_scheduled( 'mainwp_fluentsupport_sync_tickets_cron' ) ) {
-			wp_schedule_event( time(), 'five_minutes', 'mainwp_fluentsupport_sync_tickets_cron' );
+		
+		if ( wp_next_scheduled( 'mainwp_fluentsupport_sync_tickets_cron' ) ) {
+			wp_clear_scheduled_hook( 'mainwp_fluentsupport_sync_tickets_cron' );
 		}
+		wp_schedule_event( time(), 'five_minutes', 'mainwp_fluentsupport_sync_tickets_cron' );
+		update_option( 'mainwp_fluentsupport_version', $this->software_version );
 	}
 
 	public function deactivate() {
 		do_action( 'mainwp_deactivate_extention', $this->plugin_handle );
-		$timestamp = wp_next_scheduled( 'mainwp_fluentsupport_sync_tickets_cron' );
-		if ( $timestamp ) {
-			wp_unschedule_event( $timestamp, 'mainwp_fluentsupport_sync_tickets_cron' );
-		}
+		wp_clear_scheduled_hook( 'mainwp_fluentsupport_sync_tickets_cron' );
 	}
 
 	public function hook_get_metaboxes( $metaboxes ) {
