@@ -1,8 +1,7 @@
 <?php
 /**
  * MainWP FluentSupport Admin
- *
- * @package MainWP\Extensions\FluentSupport
+ * Handles administration interface, AJAX, and tab rendering.
  */
 
 namespace MainWP\Extensions\FluentSupport;
@@ -25,13 +24,9 @@ class MainWP_FluentSupport_Admin {
 	public function __construct() {
 		MainWP_FluentSupport_DB::get_instance()->install();
 		add_action( 'admin_init', array( $this, 'process_settings_save' ) );
-		// Register the AJAX handler for the "Sync Now" button
 		add_action( 'wp_ajax_mainwp_fluentsupport_fetch_tickets', array( $this, 'ajax_fetch_tickets' ) );
 	}
 
-	/**
-	 * AJAX Handler to manually trigger sync and return updated table HTML.
-	 */
 	public function ajax_fetch_tickets() {
 		check_ajax_referer( 'ticket-status-sync-for-fluentsupport-to-mainwp-nonce', 'security' );
 
@@ -44,13 +39,14 @@ class MainWP_FluentSupport_Admin {
 		$pass = get_option( 'mainwp_fluentsupport_api_password', '' );
 
 		if ( empty( $url ) || empty( $user ) || empty( $pass ) ) {
-			wp_send_json_error( array( 'message' => __( 'Configuration missing. Check settings.', 'ticket-status-sync-for-fluentsupport-to-mainwp' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Configuration missing.', 'ticket-status-sync-for-fluentsupport-to-mainwp' ) ) );
 		}
 
 		$sync_result = MainWP_FluentSupport_Utility::api_sync_tickets( $url, $user, $pass );
 
 		if ( $sync_result['success'] ) {
-			// Regenerate the table HTML for the UI update
+			update_option( 'mainwp_fluentsupport_sync_log', current_time( 'mysql' ) . ' - Manual Success: ' . $sync_result['synced'] . ' tickets.' );
+			
 			$db_results = MainWP_FluentSupport_Utility::api_get_tickets_from_db();
 			$html = '';
 			if ( ! empty( $db_results['tickets'] ) ) {
@@ -62,8 +58,6 @@ class MainWP_FluentSupport_Admin {
 						<td>' . esc_html( $ticket['updated_at'] ) . '</td>
 					</tr>';
 				}
-			} else {
-				$html = '<tr><td colspan="4">' . esc_html__( 'No tickets found.', 'ticket-status-sync-for-fluentsupport-to-mainwp' ) . '</td></tr>';
 			}
 
 			wp_send_json_success( array(
@@ -71,6 +65,7 @@ class MainWP_FluentSupport_Admin {
 				'html'    => $html
 			) );
 		} else {
+			update_option( 'mainwp_fluentsupport_sync_log', current_time( 'mysql' ) . ' - Manual Error: ' . $sync_result['error'] );
 			wp_send_json_error( array( 'message' => $sync_result['error'] ) );
 		}
 	}
@@ -89,6 +84,27 @@ class MainWP_FluentSupport_Admin {
 		exit;
 	}
 
+    public function render_log_tab() {
+        $log = get_option( 'mainwp_fluentsupport_sync_log', 'No log data yet.' );
+        ?>
+        <div class="mainwp-padd-cont" style="padding-top: 50px;">
+            <div class="ui segment">
+                <h3 class="ui header">
+                    <i class="history icon"></i>
+                    <div class="content">
+                        <?php esc_html_e( 'Sync Status Log', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?>
+                        <div class="sub header"><?php esc_html_e( 'The result of the most recent background or manual synchronization.', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?></div>
+                    </div>
+                </h3>
+                <div class="ui message info">
+                    <p><code><?php echo esc_html( $log ); ?></code></p>
+                </div>
+                <p><?php esc_html_e( 'If the log shows an error, please verify your Support Site URL and Application Password in the Settings tab.', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?></p>
+            </div>
+        </div>
+        <?php
+    }
+
 	public function render_settings_tab() {
 		$url  = get_option( 'mainwp_fluentsupport_site_url', '' );
 		$user = get_option( 'mainwp_fluentsupport_api_username', '' );
@@ -98,6 +114,7 @@ class MainWP_FluentSupport_Admin {
 			<?php if ( isset( $_GET['message'] ) && 'settings_saved' === $_GET['message'] ) : ?>
 				<div class="mainwp-notice mainwp-notice-green"><?php esc_html_e( 'Settings saved successfully!', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?></div>
 			<?php endif; ?>
+
 			<h3><?php esc_html_e( 'Support Site Configuration', 'ticket-status-sync-for-fluentsupport-to-mainwp' ); ?></h3>
 			<form method="post" action="">
 				<?php wp_nonce_field( 'mainwp_fluentsupport_settings_save', 'mainwp_fluentsupport_settings_save_nonce' ); ?>
@@ -164,5 +181,17 @@ class MainWP_FluentSupport_Admin {
 			</table>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Widgets screen options.
+	 *
+	 * @param array $input Input.
+	 *
+	 * @return array $input Input.
+	 */
+	public function widgets_screen_options( $input ) {
+		$input['advanced-fluentsupport-tickets-widget'] = __( 'FluentSupport Tickets', 'ticket-status-sync-for-fluentsupport-to-mainwp' );
+		return $input;
 	}
 }
