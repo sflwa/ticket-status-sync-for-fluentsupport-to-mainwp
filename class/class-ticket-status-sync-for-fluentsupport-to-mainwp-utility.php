@@ -181,7 +181,7 @@ class MainWP_FluentSupport_Utility {
             // STEP 1: Get list of tickets for current page (Bulk Call)
             // Pull all tickets, not just open ones
             // ==========================================================
-            $bulk_endpoint = $base_endpoint . '/tickets?filters[status_type]=all&per_page=100&page=' . $current_page; 
+            $bulk_endpoint = $base_endpoint . '/tickets?filters[status_type]=all&per_page=100&page=' . $current_page . '&order_by=id&order_type=desc'; 
             $response = self::execute_remote_get( $bulk_endpoint, $username, $password );
             
             if ( is_wp_error( $response ) || wp_remote_retrieve_response_code( $response ) !== 200 ) {
